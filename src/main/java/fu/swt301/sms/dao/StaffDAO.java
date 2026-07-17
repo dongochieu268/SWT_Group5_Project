@@ -3,6 +3,7 @@ package fu.swt301.sms.dao;
 import fu.swt301.sms.entity.Role;
 import fu.swt301.sms.entity.Staff;
 import fu.swt301.sms.utils.DBUtils;
+import fu.swt301.sms.utils.PasswordUtils;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -53,7 +54,7 @@ public class StaffDAO {
      * @throws ClassNotFoundException if the database driver is not found.
      */
     public boolean isEmailExists(String email, int currentStaffId) throws SQLException, ClassNotFoundException {
-        String sql = "SELECT COUNT(*) FROM Staff WHERE Email = ? AND StaffID != ?";
+        String sql = "SELECT COUNT(*) FROM Staff WHERE Email = ? AND StaffID != ? AND Deleted = 0";
         try (Connection conn = DBUtils.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, email);
@@ -73,7 +74,7 @@ public class StaffDAO {
      * @throws ClassNotFoundException if the database driver is not found.
      */
     public boolean isFullNameExists(String fullName, int currentStaffId) throws SQLException, ClassNotFoundException {
-        String sql = "SELECT COUNT(*) FROM Staff WHERE FullName = ? AND StaffID != ?";
+        String sql = "SELECT COUNT(*) FROM Staff WHERE FullName = ? AND StaffID != ? AND Deleted = 0";
         try (Connection conn = DBUtils.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, fullName);
@@ -93,7 +94,7 @@ public class StaffDAO {
      * @throws ClassNotFoundException if the database driver is not found.
      */
     public boolean isPhoneNumberExists(String phoneNumber, int currentStaffId) throws SQLException, ClassNotFoundException {
-        String sql = "SELECT COUNT(*) FROM Staff WHERE PhoneNumber = ? AND StaffID != ?";
+        String sql = "SELECT COUNT(*) FROM Staff WHERE PhoneNumber = ? AND StaffID != ? AND Deleted = 0";
         try (Connection conn = DBUtils.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, phoneNumber);
@@ -105,20 +106,21 @@ public class StaffDAO {
     }
 
     /**
-     * Authenticates a user by checking their email and password against the database.
+     * Finds an active, non-deleted staff account by email.
      * @param email The user's email.
-     * @param password The user's plain text password.
-     * @return A populated Staff object if authentication is successful, null otherwise.
+     * @return A populated Staff object with its password hash if found, null otherwise.
      */
-    public Staff checkLogin(String email, String password) {
-        String sql = "SELECT s.*, r.Role_Name FROM Staff s JOIN Role r ON s.Role_ID = r.Role_ID WHERE s.Email = ? AND s.Password = ?";
+    public Staff findActiveStaffByEmail(String email) {
+        String sql = "SELECT s.*, r.Role_Name FROM Staff s JOIN Role r ON s.Role_ID = r.Role_ID "
+                + "WHERE s.Email = ? AND s.Deleted = 0 AND s.IsActive = 1";
         try (Connection conn = DBUtils.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, email);
-            ps.setString(2, password);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    return extractStaffFromResultSet(rs);
+                    Staff staff = extractStaffFromResultSet(rs);
+                    staff.setPassword(rs.getString("PasswordHash"));
+                    return staff;
                 }
             }
         } catch (ClassNotFoundException | SQLException e) {
@@ -135,7 +137,7 @@ public class StaffDAO {
      */
     public List<Staff> getStaffByFilter(String name, String status) {
         List<Staff> staffList = new ArrayList<>();
-        StringBuilder sql = new StringBuilder("SELECT s.*, r.Role_Name FROM Staff s JOIN Role r ON s.Role_ID = r.Role_ID WHERE 1=1");
+        StringBuilder sql = new StringBuilder("SELECT s.*, r.Role_Name FROM Staff s JOIN Role r ON s.Role_ID = r.Role_ID WHERE s.Deleted = 0");
         if (name != null && !name.isEmpty()) {
             sql.append(" AND s.FullName LIKE ?");
         }
@@ -167,14 +169,18 @@ public class StaffDAO {
      * @param staff The Staff object containing the data to be inserted.
      */
     public void createStaff(Staff staff) {
-        String sql = "INSERT INTO Staff (FullName, Gender, PhoneNumber, Email, Password, Role_ID, IsActive) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO Staff (FullName, Gender, PhoneNumber, Email, PasswordHash, Role_ID, IsActive, Deleted) VALUES (?, ?, ?, ?, ?, ?, ?, 0)";
         try (Connection conn = DBUtils.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
+            String passwordHash = staff.getPassword();
+            if (!PasswordUtils.isBCryptHash(passwordHash)) {
+                passwordHash = PasswordUtils.hashPassword(passwordHash);
+            }
             ps.setString(1, staff.getFullName());
             ps.setBoolean(2, staff.isGender());
             ps.setString(3, staff.getPhoneNumber());
             ps.setString(4, staff.getEmail());
-            ps.setString(5, staff.getPassword());
+            ps.setString(5, passwordHash);
             ps.setInt(6, staff.getRole().getRoleID());
             ps.setBoolean(7, staff.isIsActive());
             ps.executeUpdate();
@@ -189,7 +195,7 @@ public class StaffDAO {
      * @param staff The Staff object containing the updated data. The StaffID must be set.
      */
     public void updateStaff(Staff staff) {
-        String sql = "UPDATE Staff SET FullName = ?, Gender = ?, PhoneNumber = ?, Email = ?, Role_ID = ?, IsActive = ? WHERE StaffID = ?";
+        String sql = "UPDATE Staff SET FullName = ?, Gender = ?, PhoneNumber = ?, Email = ?, Role_ID = ?, IsActive = ? WHERE StaffID = ? AND Deleted = 0";
         try (Connection conn = DBUtils.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, staff.getFullName());
@@ -226,7 +232,7 @@ public class StaffDAO {
      * @return A populated Staff object if found, null otherwise.
      */
     public Staff getStaffById(int staffId) {
-        String sql = "SELECT s.*, r.Role_Name FROM Staff s JOIN Role r ON s.Role_ID = r.Role_ID WHERE s.StaffID = ?";
+        String sql = "SELECT s.*, r.Role_Name FROM Staff s JOIN Role r ON s.Role_ID = r.Role_ID WHERE s.StaffID = ? AND s.Deleted = 0";
         try (Connection conn = DBUtils.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, staffId);
