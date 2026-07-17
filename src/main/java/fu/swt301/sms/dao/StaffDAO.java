@@ -3,7 +3,6 @@ package fu.swt301.sms.dao;
 import fu.swt301.sms.entity.Role;
 import fu.swt301.sms.entity.Staff;
 import fu.swt301.sms.utils.DBUtils;
-import fu.swt301.sms.utils.PasswordUtils;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -172,15 +171,11 @@ public class StaffDAO {
         String sql = "INSERT INTO Staff (FullName, Gender, PhoneNumber, Email, PasswordHash, Role_ID, IsActive, Deleted) VALUES (?, ?, ?, ?, ?, ?, ?, 0)";
         try (Connection conn = DBUtils.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
-            String passwordHash = staff.getPassword();
-            if (!PasswordUtils.isBCryptHash(passwordHash)) {
-                passwordHash = PasswordUtils.hashPassword(passwordHash);
-            }
             ps.setString(1, staff.getFullName());
             ps.setBoolean(2, staff.isGender());
             ps.setString(3, staff.getPhoneNumber());
             ps.setString(4, staff.getEmail());
-            ps.setString(5, passwordHash);
+            ps.setString(5, staff.getPassword());
             ps.setInt(6, staff.getRole().getRoleID());
             ps.setBoolean(7, staff.isIsActive());
             ps.executeUpdate();

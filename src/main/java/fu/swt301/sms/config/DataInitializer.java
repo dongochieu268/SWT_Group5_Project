@@ -10,6 +10,8 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * This listener class is automatically instantiated and invoked by the web container when the application starts up.
@@ -184,22 +186,42 @@ public class DataInitializer implements ServletContextListener {
         }
 
         if (columnExists(conn, "Staff", "Password")) {
-            String selectSql = "SELECT StaffID, Password, PasswordHash FROM Staff WHERE PasswordHash IS NULL OR PasswordHash = ''";
+            List<Integer> staffIds = new ArrayList<>();
+            List<String> passwordHashes = new ArrayList<>();
+            String selectSql = "SELECT StaffID, Password, PasswordHash FROM Staff";
             try (PreparedStatement select = conn.prepareStatement(selectSql);
-                 ResultSet rs = select.executeQuery();
-                 PreparedStatement update = conn.prepareStatement("UPDATE Staff SET PasswordHash = ? WHERE StaffID = ?")) {
+                 ResultSet rs = select.executeQuery()) {
                 while (rs.next()) {
+                    String currentHash = rs.getString("PasswordHash");
                     String legacyPassword = rs.getString("Password");
-                    if (legacyPassword != null && !legacyPassword.isEmpty()) {
-                        String passwordHash = PasswordUtils.isBCryptHash(legacyPassword)
-                                ? legacyPassword
-                                : PasswordUtils.hashPassword(legacyPassword);
-                        update.setString(1, passwordHash);
-                        update.setInt(2, rs.getInt("StaffID"));
-                        update.addBatch();
+                    if (!PasswordUtils.isBCryptHash(currentHash)) {
+                        String passwordToMigrate = currentHash != null && !currentHash.isEmpty()
+                                ? currentHash
+                                : legacyPassword;
+                        if (passwordToMigrate == null || passwordToMigrate.isEmpty()) {
+                            throw new SQLException("Cannot migrate empty password for staff " + rs.getInt("StaffID"));
+                        }
+                        staffIds.add(rs.getInt("StaffID"));
+                        passwordHashes.add(PasswordUtils.hashPassword(passwordToMigrate));
                     }
                 }
+            }
+
+            try (PreparedStatement update = conn.prepareStatement("UPDATE Staff SET PasswordHash = ? WHERE StaffID = ?")) {
+                for (int i = 0; i < staffIds.size(); i++) {
+                    update.setString(1, passwordHashes.get(i));
+                    update.setInt(2, staffIds.get(i));
+                    update.addBatch();
+                }
                 update.executeBatch();
+            }
+
+            try (PreparedStatement alter = conn.prepareStatement("ALTER TABLE Staff ALTER COLUMN PasswordHash VARCHAR(255) NOT NULL")) {
+                alter.execute();
+            }
+            try (PreparedStatement drop = conn.prepareStatement("ALTER TABLE Staff DROP COLUMN Password")) {
+                drop.execute();
+                System.out.println("Legacy password column removed from Staff.");
             }
         }
     }
