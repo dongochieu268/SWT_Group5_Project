@@ -1,6 +1,7 @@
 package fu.swt301.sms.config;
 
 import fu.swt301.sms.utils.DBUtils;
+import fu.swt301.sms.utils.PasswordUtils;
 import jakarta.servlet.ServletContextEvent;
 import jakarta.servlet.ServletContextListener;
 import jakarta.servlet.annotation.WebListener;
@@ -9,6 +10,8 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * This listener class is automatically instantiated and invoked by the web container when the application starts up.
@@ -32,6 +35,7 @@ public class DataInitializer implements ServletContextListener {
             System.out.println("Checking database schema...");
             createRoleTableIfNotExists(conn);
             createStaffTableIfNotExists(conn);
+            ensureStaffAuthColumns(conn);
 
             // Step 2: Check if the 'Role' table is empty. If it is, we assume the database is new and needs seeding.
             boolean dataExists = false;
@@ -118,9 +122,10 @@ public class DataInitializer implements ServletContextListener {
                                "Gender BIT NOT NULL, " +
                                "PhoneNumber VARCHAR(20), " +
                                "Email VARCHAR(100) NOT NULL UNIQUE, " +
-                               "Password VARCHAR(255) NOT NULL, " +
+                               "PasswordHash VARCHAR(255) NOT NULL, " +
                                "Role_ID INT NOT NULL, " +
                                "IsActive BIT NOT NULL, " +
+                               "Deleted BIT NOT NULL DEFAULT 0, " +
                                "CONSTRAINT FK_Staff_Role FOREIGN KEY (Role_ID) REFERENCES Role(Role_ID)" +
                                ")";
             try (PreparedStatement ps = conn.prepareStatement(createSQL)) {
@@ -152,17 +157,83 @@ public class DataInitializer implements ServletContextListener {
         }
 
         // Insert a default administrator user for initial login.
-        // IMPORTANT: The password here is plain text. In a real-world application, this should be hashed.
-        try (PreparedStatement ps = conn.prepareStatement("INSERT INTO Staff (FullName, Gender, PhoneNumber, Email, Password, Role_ID, IsActive) VALUES (?, ?, ?, ?, ?, ?, ?)")) {
+        try (PreparedStatement ps = conn.prepareStatement("INSERT INTO Staff (FullName, Gender, PhoneNumber, Email, PasswordHash, Role_ID, IsActive, Deleted) VALUES (?, ?, ?, ?, ?, ?, ?, 0)")) {
             ps.setString(1, "Admin User");
             ps.setBoolean(2, true); // true for Male
             ps.setString(3, "0123456789");
             ps.setString(4, "admin@example.com");
-            ps.setString(5, "admin123"); // WARNING: Plain text password
+            ps.setString(5, PasswordUtils.hashPassword("admin123"));
             ps.setInt(6, 1); // Role_ID for Admin
             ps.setBoolean(7, true); // IsActive
             ps.executeUpdate();
             System.out.println("Default admin user inserted.");
+        }
+    }
+
+    private void ensureStaffAuthColumns(Connection conn) throws SQLException {
+        if (!columnExists(conn, "Staff", "PasswordHash")) {
+            try (PreparedStatement ps = conn.prepareStatement("ALTER TABLE Staff ADD PasswordHash VARCHAR(255) NULL")) {
+                ps.execute();
+                System.out.println("Column 'PasswordHash' added to Staff.");
+            }
+        }
+
+        if (!columnExists(conn, "Staff", "Deleted")) {
+            try (PreparedStatement ps = conn.prepareStatement("ALTER TABLE Staff ADD Deleted BIT NOT NULL DEFAULT 0")) {
+                ps.execute();
+                System.out.println("Column 'Deleted' added to Staff.");
+            }
+        }
+
+        if (columnExists(conn, "Staff", "Password")) {
+            List<Integer> staffIds = new ArrayList<>();
+            List<String> passwordHashes = new ArrayList<>();
+            String selectSql = "SELECT StaffID, Password, PasswordHash FROM Staff";
+            try (PreparedStatement select = conn.prepareStatement(selectSql);
+                 ResultSet rs = select.executeQuery()) {
+                while (rs.next()) {
+                    String currentHash = rs.getString("PasswordHash");
+                    String legacyPassword = rs.getString("Password");
+                    if (!PasswordUtils.isBCryptHash(currentHash)) {
+                        String passwordToMigrate = currentHash != null && !currentHash.isEmpty()
+                                ? currentHash
+                                : legacyPassword;
+                        if (passwordToMigrate == null || passwordToMigrate.isEmpty()) {
+                            throw new SQLException("Cannot migrate empty password for staff " + rs.getInt("StaffID"));
+                        }
+                        staffIds.add(rs.getInt("StaffID"));
+                        passwordHashes.add(PasswordUtils.hashPassword(passwordToMigrate));
+                    }
+                }
+            }
+
+            try (PreparedStatement update = conn.prepareStatement("UPDATE Staff SET PasswordHash = ? WHERE StaffID = ?")) {
+                for (int i = 0; i < staffIds.size(); i++) {
+                    update.setString(1, passwordHashes.get(i));
+                    update.setInt(2, staffIds.get(i));
+                    update.addBatch();
+                }
+                update.executeBatch();
+            }
+
+            try (PreparedStatement alter = conn.prepareStatement("ALTER TABLE Staff ALTER COLUMN PasswordHash VARCHAR(255) NOT NULL")) {
+                alter.execute();
+            }
+            try (PreparedStatement drop = conn.prepareStatement("ALTER TABLE Staff DROP COLUMN Password")) {
+                drop.execute();
+                System.out.println("Legacy password column removed from Staff.");
+            }
+        }
+    }
+
+    private boolean columnExists(Connection conn, String tableName, String columnName) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = ? AND COLUMN_NAME = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, tableName);
+            ps.setString(2, columnName);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() && rs.getInt(1) > 0;
+            }
         }
     }
 

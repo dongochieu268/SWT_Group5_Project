@@ -1,7 +1,7 @@
 package fu.swt301.sms.servlet;
 
-import fu.swt301.sms.dao.StaffDAO;
 import fu.swt301.sms.entity.Staff;
+import fu.swt301.sms.service.AuthService;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -13,12 +13,21 @@ import java.io.IOException;
 
 @WebServlet("/login")
 public class LoginServlet extends HttpServlet {
+    private final AuthService authService;
+
+    public LoginServlet() {
+        this(new AuthService());
+    }
+
+    LoginServlet(AuthService authService) {
+        this.authService = authService;
+    }
+
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         String email = request.getParameter("email");
         String password = request.getParameter("password");
-        StaffDAO staffDAO = new StaffDAO();
-        Staff staff = staffDAO.checkLogin(email, password);
+        Staff staff = authService.authenticate(email, password);
         if (staff != null) {
             HttpSession session = request.getSession();
             session.setAttribute("user", staff);

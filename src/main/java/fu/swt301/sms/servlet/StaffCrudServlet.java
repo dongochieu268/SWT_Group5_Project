@@ -4,6 +4,7 @@ import fu.swt301.sms.dao.RoleDAO;
 import fu.swt301.sms.dao.StaffDAO;
 import fu.swt301.sms.entity.Role;
 import fu.swt301.sms.entity.Staff;
+import fu.swt301.sms.service.StaffService;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -33,6 +34,7 @@ public class StaffCrudServlet extends HttpServlet {
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         String action = request.getParameter("action");
         StaffDAO staffDAO = new StaffDAO();
+        StaffService staffService = new StaffService(staffDAO);
         RoleDAO roleDAO = new RoleDAO();
 
         // --- Step 1: Populate a Staff object from the request parameters ---
@@ -90,7 +92,7 @@ public class StaffCrudServlet extends HttpServlet {
         // --- Step 4: Handle validation success ---
         // If there were no errors, proceed with the database operation.
         if ("create".equals(action)) {
-            staffDAO.createStaff(staff);
+            staffService.createStaff(staff);
         } else if ("update".equals(action)) {
             staffDAO.updateStaff(staff);
         }
