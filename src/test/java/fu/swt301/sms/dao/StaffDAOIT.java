@@ -120,6 +120,20 @@ public class StaffDAOIT {
         assertEquals(2, countStaff());
     }
 
+    @Test
+    public void failedInsertLeavesDatabaseUnchanged() throws Exception {
+        StaffDAO staffDAO = new StaffDAO(connectionProvider);
+        Staff staff = validStaff();
+        staff.getRole().setRoleID(999);
+
+        try {
+            staffDAO.createStaff(staff);
+            fail("Expected database insert to fail");
+        } catch (IllegalStateException expected) {
+            assertEquals(0, countStaff());
+        }
+    }
+
     private int countStaff() throws Exception {
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement("SELECT COUNT(*) FROM Staff");
