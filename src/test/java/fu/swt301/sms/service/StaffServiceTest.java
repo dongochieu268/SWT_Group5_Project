@@ -10,6 +10,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 public class StaffServiceTest {
@@ -89,8 +90,21 @@ public class StaffServiceTest {
         assertEquals(0, staffDAO.receivedOffset);
     }
 
+    @Test
+    public void getStaffByIdDelegatesToDao() {
+        Staff expectedStaff = new Staff();
+        FakeStaffDAO staffDAO = new FakeStaffDAO();
+        staffDAO.staffToReturn = expectedStaff;
+        StaffService staffService = new StaffService(staffDAO);
+
+        Staff result = staffService.getStaffById(1);
+
+        assertSame(expectedStaff, result);
+    }
+
     private static class FakeStaffDAO extends StaffDAO {
         private Staff savedStaff;
+        private Staff staffToReturn;
         private int totalItems;
         private List<Staff> pageResult = new ArrayList<Staff>();
         private String countKeyword;
@@ -123,6 +137,11 @@ public class StaffServiceTest {
             receivedOffset = offset;
             receivedPageSize = pageSize;
             return pageResult;
+        }
+
+        @Override
+        public Staff getStaffById(int staffId) {
+            return staffToReturn;
         }
     }
 }

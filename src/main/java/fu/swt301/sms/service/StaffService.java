@@ -56,4 +56,8 @@ public class StaffService {
             return defaultValue;
         }
     }
+
+    public Staff getStaffById(int staffId) {
+        return staffDAO.getStaffById(staffId);
+    }
 }
