@@ -36,6 +36,7 @@ public class DataInitializer implements ServletContextListener {
             createRoleTableIfNotExists(conn);
             createStaffTableIfNotExists(conn);
             ensureStaffAuthColumns(conn);
+            ensureStaffListColumns(conn);
 
             // Step 2: Check if the 'Role' table is empty. If it is, we assume the database is new and needs seeding.
             boolean dataExists = false;
@@ -118,7 +119,9 @@ public class DataInitializer implements ServletContextListener {
             System.out.println("Table 'Staff' not found. Creating table...");
             String createSQL = "CREATE TABLE Staff (" +
                                "StaffID INT PRIMARY KEY IDENTITY(1,1), " +
+                               "EmployeeCode VARCHAR(50), " +
                                "FullName NVARCHAR(100) NOT NULL, " +
+                               "Department NVARCHAR(100), " +
                                "Gender BIT NOT NULL, " +
                                "PhoneNumber VARCHAR(20), " +
                                "Email VARCHAR(100) NOT NULL UNIQUE, " +
@@ -222,6 +225,22 @@ public class DataInitializer implements ServletContextListener {
             try (PreparedStatement drop = conn.prepareStatement("ALTER TABLE Staff DROP COLUMN Password")) {
                 drop.execute();
                 System.out.println("Legacy password column removed from Staff.");
+            }
+        }
+    }
+
+    private void ensureStaffListColumns(Connection conn) throws SQLException {
+        if (!columnExists(conn, "Staff", "EmployeeCode")) {
+            try (PreparedStatement ps = conn.prepareStatement("ALTER TABLE Staff ADD EmployeeCode VARCHAR(50) NULL")) {
+                ps.execute();
+                System.out.println("Column 'EmployeeCode' added to Staff.");
+            }
+        }
+
+        if (!columnExists(conn, "Staff", "Department")) {
+            try (PreparedStatement ps = conn.prepareStatement("ALTER TABLE Staff ADD Department NVARCHAR(100) NULL")) {
+                ps.execute();
+                System.out.println("Column 'Department' added to Staff.");
             }
         }
     }
