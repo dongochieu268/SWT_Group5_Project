@@ -1,5 +1,7 @@
 package fu.swt301.sms.entity;
 
+import java.sql.Timestamp;
+
 public class Staff {
     private int staffID;
     private String employeeCode;
@@ -11,6 +13,8 @@ public class Staff {
     private String password;
     private Role role; // Changed from String to Role
     private boolean isActive;
+    private int failedLoginAttempts;
+    private Timestamp lockUntil;
 
     public int getStaffID() {
         return staffID;
@@ -90,5 +94,21 @@ public class Staff {
 
     public void setIsActive(boolean isActive) {
         this.isActive = isActive;
+    }
+
+    public int getFailedLoginAttempts() {
+        return failedLoginAttempts;
+    }
+
+    public void setFailedLoginAttempts(int failedLoginAttempts) {
+        this.failedLoginAttempts = failedLoginAttempts;
+    }
+
+    public Timestamp getLockUntil() {
+        return lockUntil;
+    }
+
+    public void setLockUntil(Timestamp lockUntil) {
+        this.lockUntil = lockUntil;
     }
 }

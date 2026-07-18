@@ -1,6 +1,7 @@
 package fu.swt301.sms.servlet;
 
 import fu.swt301.sms.entity.Staff;
+import fu.swt301.sms.service.AccountLockedException;
 import fu.swt301.sms.service.AuthService;
 
 import jakarta.servlet.ServletException;
@@ -16,6 +17,8 @@ import java.util.logging.Logger;
 public class LoginServlet extends HttpServlet {
     private static final Logger LOGGER = Logger.getLogger(LoginServlet.class.getName());
     private static final String INVALID_CREDENTIALS_MESSAGE = "Invalid email or password";
+    private static final String ACCOUNT_LOCKED_MESSAGE =
+            "Account is locked due to too many failed attempts. Please try again in 5 minutes.";
 
     private final AuthService authService;
 
@@ -34,6 +37,10 @@ public class LoginServlet extends HttpServlet {
         Staff staff = null;
         try {
             staff = authService.authenticate(email, password);
+        } catch (AccountLockedException ex) {
+            request.setAttribute("error", ACCOUNT_LOCKED_MESSAGE);
+            request.getRequestDispatcher("login.jsp").forward(request, response);
+            return;
         } catch (RuntimeException ex) {
             LOGGER.severe("Authentication failed because of an internal error: "
                     + ex.getClass().getName());

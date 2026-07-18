@@ -37,6 +37,7 @@ public class DataInitializer implements ServletContextListener {
             createStaffTableIfNotExists(conn);
             ensureStaffAuthColumns(conn);
             ensureStaffListColumns(conn);
+            ensureStaffLockoutColumns(conn);
 
             // Step 2: Check if the 'Role' table is empty. If it is, we assume the database is new and needs seeding.
             boolean dataExists = false;
@@ -129,6 +130,8 @@ public class DataInitializer implements ServletContextListener {
                                "RoleID INT NOT NULL, " +
                                "IsActive BIT NOT NULL, " +
                                "Deleted BIT NOT NULL DEFAULT 0, " +
+                               "FailedLoginAttempts INT NOT NULL DEFAULT 0, " +
+                               "LockUntil DATETIME2 NULL, " +
                                "CONSTRAINT FK_Staff_Role FOREIGN KEY (RoleID) REFERENCES Role(RoleID)" +
                                ")";
             try (PreparedStatement ps = conn.prepareStatement(createSQL)) {
@@ -241,6 +244,28 @@ public class DataInitializer implements ServletContextListener {
             try (PreparedStatement ps = conn.prepareStatement("ALTER TABLE Staff ADD Department NVARCHAR(100) NULL")) {
                 ps.execute();
                 System.out.println("Column 'Department' added to Staff.");
+            }
+        }
+    }
+
+    /**
+     * Adds the columns FR-03 (account lockout) relies on, for databases created
+     * before this feature existed. Safe to run on every startup.
+     * @param conn The active database connection.
+     * @throws SQLException if a database access error occurs.
+     */
+    private void ensureStaffLockoutColumns(Connection conn) throws SQLException {
+        if (!columnExists(conn, "Staff", "FailedLoginAttempts")) {
+            try (PreparedStatement ps = conn.prepareStatement("ALTER TABLE Staff ADD FailedLoginAttempts INT NOT NULL DEFAULT 0")) {
+                ps.execute();
+                System.out.println("Column 'FailedLoginAttempts' added to Staff.");
+            }
+        }
+
+        if (!columnExists(conn, "Staff", "LockUntil")) {
+            try (PreparedStatement ps = conn.prepareStatement("ALTER TABLE Staff ADD LockUntil DATETIME2 NULL")) {
+                ps.execute();
+                System.out.println("Column 'LockUntil' added to Staff.");
             }
         }
     }

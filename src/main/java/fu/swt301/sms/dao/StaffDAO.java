@@ -8,6 +8,8 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -45,6 +47,8 @@ public class StaffDAO {
         staff.setPhoneNumber(rs.getString("PhoneNumber"));
         staff.setEmail(rs.getString("Email"));
         staff.setIsActive(rs.getBoolean("IsActive"));
+        staff.setFailedLoginAttempts(rs.getInt("FailedLoginAttempts"));
+        staff.setLockUntil(rs.getTimestamp("LockUntil"));
 
         Role role = new Role();
         role.setRoleID(rs.getInt("RoleID"));
@@ -137,6 +141,46 @@ public class StaffDAO {
             e.printStackTrace();
         }
         return null;
+    }
+
+    /**
+     * Persists a failed login attempt: stores the new attempt count and, once the
+     * account has crossed the lockout threshold, the timestamp the lock expires at.
+     * @param staffId The staff member whose login just failed.
+     * @param failedAttempts The new total number of consecutive failed attempts.
+     * @param lockUntil The instant the lock expires, or null if the account is not locked.
+     * @throws SQLException if a database access error occurs.
+     * @throws ClassNotFoundException if the database driver is not found.
+     */
+    public void updateLoginFailure(int staffId, int failedAttempts, Timestamp lockUntil) throws SQLException, ClassNotFoundException {
+        String sql = "UPDATE Staff SET FailedLoginAttempts = ?, LockUntil = ? WHERE StaffID = ?";
+        try (Connection conn = connectionProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, failedAttempts);
+            if (lockUntil != null) {
+                ps.setTimestamp(2, lockUntil);
+            } else {
+                ps.setNull(2, Types.TIMESTAMP);
+            }
+            ps.setInt(3, staffId);
+            ps.executeUpdate();
+        }
+    }
+
+    /**
+     * Clears the failed-login counter and any active lock, e.g. after a successful
+     * login or once a prior lock has expired.
+     * @param staffId The staff member whose failed-login state should be cleared.
+     * @throws SQLException if a database access error occurs.
+     * @throws ClassNotFoundException if the database driver is not found.
+     */
+    public void resetLoginFailures(int staffId) throws SQLException, ClassNotFoundException {
+        String sql = "UPDATE Staff SET FailedLoginAttempts = 0, LockUntil = NULL WHERE StaffID = ?";
+        try (Connection conn = connectionProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, staffId);
+            ps.executeUpdate();
+        }
     }
 
     /**
