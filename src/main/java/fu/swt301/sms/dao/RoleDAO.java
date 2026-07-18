@@ -30,8 +30,8 @@ public class RoleDAO {
 
             while (rs.next()) {
                 Role role = new Role();
-                role.setRoleID(rs.getInt("Role_ID"));
-                role.setRoleName(rs.getString("Role_Name"));
+                role.setRoleID(rs.getInt("RoleID"));
+                role.setRoleName(rs.getString("RoleName"));
                 roleList.add(role);
             }
         } catch (ClassNotFoundException | SQLException e) {

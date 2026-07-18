@@ -47,8 +47,8 @@ public class StaffDAO {
         staff.setIsActive(rs.getBoolean("IsActive"));
 
         Role role = new Role();
-        role.setRoleID(rs.getInt("Role_ID"));
-        role.setRoleName(rs.getString("Role_Name"));
+        role.setRoleID(rs.getInt("RoleID"));
+        role.setRoleName(rs.getString("RoleName"));
         staff.setRole(role);
 
         return staff;
@@ -121,7 +121,7 @@ public class StaffDAO {
      * @return A populated Staff object with its password hash if found, null otherwise.
      */
     public Staff findActiveStaffByEmail(String email) {
-        String sql = "SELECT s.*, r.Role_Name FROM Staff s JOIN Role r ON s.Role_ID = r.Role_ID "
+        String sql = "SELECT s.*, r.RoleName FROM Staff s JOIN Role r ON s.RoleID = r.RoleID "
                 + "WHERE s.Email = ? AND s.Deleted = 0 AND s.IsActive = 1";
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -168,7 +168,7 @@ public class StaffDAO {
 
     public List<Staff> findStaffPage(String keyword, String department, String status, int offset, int pageSize) {
         List<Staff> staffList = new ArrayList<>();
-        StringBuilder sql = new StringBuilder("SELECT s.*, r.Role_Name FROM Staff s JOIN Role r ON s.Role_ID = r.Role_ID WHERE s.Deleted = 0");
+        StringBuilder sql = new StringBuilder("SELECT s.*, r.RoleName FROM Staff s JOIN Role r ON s.RoleID = r.RoleID WHERE s.Deleted = 0");
         List<Object> parameters = new ArrayList<>();
         appendStaffFilters(sql, parameters, keyword, department, status);
         sql.append(" ORDER BY s.StaffID OFFSET ? ROWS FETCH NEXT ? ROWS ONLY");
@@ -237,7 +237,7 @@ public class StaffDAO {
      * @param staff The Staff object containing the data to be inserted.
      */
     public void createStaff(Staff staff) {
-        String sql = "INSERT INTO Staff (FullName, Gender, PhoneNumber, Email, PasswordHash, Role_ID, IsActive, Deleted) VALUES (?, ?, ?, ?, ?, ?, ?, 0)";
+        String sql = "INSERT INTO Staff (FullName, Gender, PhoneNumber, Email, PasswordHash, RoleID, IsActive, Deleted) VALUES (?, ?, ?, ?, ?, ?, ?, 0)";
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, staff.getFullName());
@@ -259,7 +259,7 @@ public class StaffDAO {
      * @param staff The Staff object containing the updated data. The StaffID must be set.
      */
     public void updateStaff(Staff staff) {
-        String sql = "UPDATE Staff SET FullName = ?, Gender = ?, PhoneNumber = ?, Email = ?, Role_ID = ?, IsActive = ? WHERE StaffID = ? AND Deleted = 0";
+        String sql = "UPDATE Staff SET FullName = ?, Gender = ?, PhoneNumber = ?, Email = ?, RoleID = ?, IsActive = ? WHERE StaffID = ? AND Deleted = 0";
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, staff.getFullName());
@@ -296,7 +296,7 @@ public class StaffDAO {
      * @return A populated Staff object if found, null otherwise.
      */
     public Staff getStaffById(int staffId) {
-        String sql = "SELECT s.*, r.Role_Name FROM Staff s JOIN Role r ON s.Role_ID = r.Role_ID WHERE s.StaffID = ? AND s.Deleted = 0";
+        String sql = "SELECT s.*, r.RoleName FROM Staff s JOIN Role r ON s.RoleID = r.RoleID WHERE s.StaffID = ? AND s.Deleted = 0";
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, staffId);
