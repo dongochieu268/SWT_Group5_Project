@@ -21,6 +21,23 @@ import java.util.List;
  */
 @WebServlet("/staff-crud")
 public class StaffCrudServlet extends HttpServlet {
+    private final StaffDAO staffDAO;
+    private final StaffService staffService;
+    private final RoleDAO roleDAO;
+
+    public StaffCrudServlet() {
+        this(new StaffDAO(), new RoleDAO());
+    }
+
+    StaffCrudServlet(StaffDAO staffDAO, RoleDAO roleDAO) {
+        this(staffDAO, new StaffService(staffDAO), roleDAO);
+    }
+
+    StaffCrudServlet(StaffDAO staffDAO, StaffService staffService, RoleDAO roleDAO) {
+        this.staffDAO = staffDAO;
+        this.staffService = staffService;
+        this.roleDAO = roleDAO;
+    }
 
     /**
      * Handles POST requests, which are used to submit data for creating or updating a staff member.
@@ -33,10 +50,6 @@ public class StaffCrudServlet extends HttpServlet {
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         String action = request.getParameter("action");
-        StaffDAO staffDAO = new StaffDAO();
-        StaffService staffService = new StaffService(staffDAO);
-        RoleDAO roleDAO = new RoleDAO();
-
         // --- Step 1: Populate a Staff object from the request parameters ---
         // Input strings are trimmed to remove leading/trailing whitespace for data consistency.
         Staff staff = new Staff();
@@ -112,9 +125,6 @@ public class StaffCrudServlet extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         String action = request.getParameter("action");
-        StaffDAO staffDAO = new StaffDAO();
-        RoleDAO roleDAO = new RoleDAO();
-
         if ("delete".equals(action)) {
             // Handle deletion action.
             int staffId = Integer.parseInt(request.getParameter("id"));
