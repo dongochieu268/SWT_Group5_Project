@@ -7,9 +7,14 @@ import fu.swt301.sms.entity.Staff;
 import fu.swt301.sms.utils.PasswordUtils;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import org.junit.Test;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -195,12 +200,98 @@ public class StaffServiceTest {
         private final StaffService service = new StaffService(staffDAO, roleDAO);
     }
 
+    @Test
+    public void getStaffPageNormalizesInvalidPageAndPageSize() {
+        FakeStaffDAO staffDAO = new FakeStaffDAO();
+        staffDAO.totalItems = 2;
+        staffDAO.pageResult = Arrays.asList(new Staff(), new Staff());
+        StaffService staffService = new StaffService(staffDAO);
+
+        StaffPage staffPage = staffService.getStaffPage(null, null, null, "abc", "-3");
+
+        assertEquals(1, staffPage.getCurrentPage());
+        assertEquals(10, staffPage.getPageSize());
+        assertEquals(0, staffDAO.receivedOffset);
+        assertEquals(10, staffDAO.receivedPageSize);
+        assertEquals(1, staffPage.getTotalPages());
+    }
+
+    @Test
+    public void getStaffPageCapsPageSizeAndMovesPastLastPageToLastPage() {
+        FakeStaffDAO staffDAO = new FakeStaffDAO();
+        staffDAO.totalItems = 95;
+        staffDAO.pageResult = new ArrayList<Staff>();
+        StaffService staffService = new StaffService(staffDAO);
+
+        StaffPage staffPage = staffService.getStaffPage(null, null, null, "99", "500");
+
+        assertEquals(2, staffPage.getCurrentPage());
+        assertEquals(50, staffPage.getPageSize());
+        assertEquals(50, staffDAO.receivedOffset);
+        assertEquals(50, staffDAO.receivedPageSize);
+        assertEquals(2, staffPage.getTotalPages());
+    }
+
+    @Test
+    public void getStaffPageKeepsFiltersForCountAndPageQuery() {
+        FakeStaffDAO staffDAO = new FakeStaffDAO();
+        staffDAO.totalItems = 25;
+        staffDAO.pageResult = Arrays.asList(new Staff());
+        StaffService staffService = new StaffService(staffDAO);
+
+        staffService.getStaffPage("NV001", "IT", "true", "2", "10");
+
+        assertEquals("NV001", staffDAO.countKeyword);
+        assertEquals("IT", staffDAO.countDepartment);
+        assertEquals("true", staffDAO.countStatus);
+        assertEquals("NV001", staffDAO.pageKeyword);
+        assertEquals("IT", staffDAO.pageDepartment);
+        assertEquals("true", staffDAO.pageStatus);
+        assertEquals(10, staffDAO.receivedOffset);
+    }
+
+    @Test
+    public void getStaffPageUsesFirstPageWhenNoDataExists() {
+        FakeStaffDAO staffDAO = new FakeStaffDAO();
+        staffDAO.totalItems = 0;
+        StaffService staffService = new StaffService(staffDAO);
+
+        StaffPage staffPage = staffService.getStaffPage(null, null, null, "5", "10");
+
+        assertEquals(1, staffPage.getCurrentPage());
+        assertEquals(0, staffPage.getTotalPages());
+        assertEquals(0, staffDAO.receivedOffset);
+    }
+
+    @Test
+    public void getStaffByIdDelegatesToDao() {
+        Staff expectedStaff = new Staff();
+        FakeStaffDAO staffDAO = new FakeStaffDAO();
+        staffDAO.staffToReturn = expectedStaff;
+        StaffService staffService = new StaffService(staffDAO);
+
+        Staff result = staffService.getStaffById(1);
+
+        assertSame(expectedStaff, result);
+    }
+
     private static class FakeStaffDAO extends StaffDAO {
         private Staff savedStaff;
         private boolean employeeCodeExists;
         private boolean fullNameExists;
         private boolean phoneExists;
         private boolean emailExists;
+        private Staff staffToReturn;
+        private int totalItems;
+        private List<Staff> pageResult = new ArrayList<Staff>();
+        private String countKeyword;
+        private String countDepartment;
+        private String countStatus;
+        private String pageKeyword;
+        private String pageDepartment;
+        private String pageStatus;
+        private int receivedOffset;
+        private int receivedPageSize;
 
         @Override
         public boolean isEmployeeCodeExists(String employeeCode, int currentStaffId) {
@@ -225,6 +316,29 @@ public class StaffServiceTest {
         @Override
         public void createStaff(Staff staff) {
             savedStaff = staff;
+        }
+
+        @Override
+        public int countStaffByFilter(String keyword, String department, String status) {
+            countKeyword = keyword;
+            countDepartment = department;
+            countStatus = status;
+            return totalItems;
+        }
+
+        @Override
+        public List<Staff> findStaffPage(String keyword, String department, String status, int offset, int pageSize) {
+            pageKeyword = keyword;
+            pageDepartment = department;
+            pageStatus = status;
+            receivedOffset = offset;
+            receivedPageSize = pageSize;
+            return pageResult;
+        }
+
+        @Override
+        public Staff getStaffById(int staffId) {
+            return staffToReturn;
         }
     }
 

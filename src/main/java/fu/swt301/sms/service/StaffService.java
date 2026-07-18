@@ -13,6 +13,9 @@ public class StaffService {
     private static final Pattern PHONE_PATTERN = Pattern.compile("0\\d{9}");
     private static final Pattern EMAIL_PATTERN =
             Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
+    static final int DEFAULT_PAGE = 1;
+    static final int DEFAULT_PAGE_SIZE = 10;
+    static final int MAX_PAGE_SIZE = 50;
 
     private final StaffDAO staffDAO;
     private final RoleDAO roleDAO;
@@ -130,5 +133,42 @@ public class StaffService {
         if (value == null || value.trim().isEmpty()) {
             throw new StaffValidationException(message);
         }
+    }
+
+    public StaffPage getStaffPage(String keyword, String department, String status, String pageParam, String pageSizeParam) {
+        int pageSize = normalizePageSize(pageSizeParam);
+        int requestedPage = normalizePositiveInt(pageParam, DEFAULT_PAGE);
+        int totalItems = staffDAO.countStaffByFilter(keyword, department, status);
+        int totalPages = totalItems == 0 ? 0 : (int) Math.ceil((double) totalItems / pageSize);
+        int currentPage = totalPages == 0 ? DEFAULT_PAGE : Math.min(requestedPage, totalPages);
+        int offset = (currentPage - 1) * pageSize;
+
+        return new StaffPage(
+                staffDAO.findStaffPage(keyword, department, status, offset, pageSize),
+                currentPage,
+                pageSize,
+                totalItems
+        );
+    }
+
+    private int normalizePageSize(String pageSizeParam) {
+        int pageSize = normalizePositiveInt(pageSizeParam, DEFAULT_PAGE_SIZE);
+        return Math.min(pageSize, MAX_PAGE_SIZE);
+    }
+
+    private int normalizePositiveInt(String value, int defaultValue) {
+        if (value == null) {
+            return defaultValue;
+        }
+        try {
+            int parsed = Integer.parseInt(value.trim());
+            return parsed > 0 ? parsed : defaultValue;
+        } catch (NumberFormatException e) {
+            return defaultValue;
+        }
+    }
+
+    public Staff getStaffById(int staffId) {
+        return staffDAO.getStaffById(staffId);
     }
 }

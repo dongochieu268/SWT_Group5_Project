@@ -7,12 +7,12 @@ public class Staff {
     private int staffID;
     private String employeeCode;
     private String fullName;
+    private String department;
     private boolean gender;
     private LocalDate dateOfBirth;
     private String phoneNumber;
     private String email;
     private String password;
-    private String department;
     private String position;
     private BigDecimal salary;
     private LocalDate hireDate;
@@ -41,6 +41,14 @@ public class Staff {
 
     public void setFullName(String fullName) {
         this.fullName = fullName;
+    }
+
+    public String getDepartment() {
+        return department;
+    }
+
+    public void setDepartment(String department) {
+        this.department = department;
     }
 
     public boolean isGender() {
@@ -81,14 +89,6 @@ public class Staff {
 
     public void setPassword(String password) {
         this.password = password;
-    }
-
-    public String getDepartment() {
-        return department;
-    }
-
-    public void setDepartment(String department) {
-        this.department = department;
     }
 
     public String getPosition() {
