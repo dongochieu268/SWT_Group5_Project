@@ -17,6 +17,15 @@ import java.util.List;
  * It handles all CRUD (Create, Read, Update, Delete) operations as well as other specific queries.
  */
 public class StaffDAO {
+    private final ConnectionProvider connectionProvider;
+
+    public StaffDAO() {
+        this(DBUtils::getConnection);
+    }
+
+    public StaffDAO(ConnectionProvider connectionProvider) {
+        this.connectionProvider = connectionProvider;
+    }
 
     /**
      * A private helper method to map a row from the ResultSet to a Staff object.
@@ -54,7 +63,7 @@ public class StaffDAO {
      */
     public boolean isEmailExists(String email, int currentStaffId) throws SQLException, ClassNotFoundException {
         String sql = "SELECT COUNT(*) FROM Staff WHERE Email = ? AND StaffID != ? AND Deleted = 0";
-        try (Connection conn = DBUtils.getConnection();
+        try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, email);
             ps.setInt(2, currentStaffId);
@@ -74,7 +83,7 @@ public class StaffDAO {
      */
     public boolean isFullNameExists(String fullName, int currentStaffId) throws SQLException, ClassNotFoundException {
         String sql = "SELECT COUNT(*) FROM Staff WHERE FullName = ? AND StaffID != ? AND Deleted = 0";
-        try (Connection conn = DBUtils.getConnection();
+        try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, fullName);
             ps.setInt(2, currentStaffId);
@@ -94,7 +103,7 @@ public class StaffDAO {
      */
     public boolean isPhoneNumberExists(String phoneNumber, int currentStaffId) throws SQLException, ClassNotFoundException {
         String sql = "SELECT COUNT(*) FROM Staff WHERE PhoneNumber = ? AND StaffID != ? AND Deleted = 0";
-        try (Connection conn = DBUtils.getConnection();
+        try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, phoneNumber);
             ps.setInt(2, currentStaffId);
@@ -112,7 +121,7 @@ public class StaffDAO {
     public Staff findActiveStaffByEmail(String email) {
         String sql = "SELECT s.*, r.Role_Name FROM Staff s JOIN Role r ON s.Role_ID = r.Role_ID "
                 + "WHERE s.Email = ? AND s.Deleted = 0 AND s.IsActive = 1";
-        try (Connection conn = DBUtils.getConnection();
+        try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, email);
             try (ResultSet rs = ps.executeQuery()) {
@@ -143,7 +152,7 @@ public class StaffDAO {
         if (status != null && !status.isEmpty()) {
             sql.append(" AND s.IsActive = ?");
         }
-        try (Connection conn = DBUtils.getConnection();
+        try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql.toString())) {
             int paramIndex = 1;
             if (name != null && !name.isEmpty()) {
@@ -169,7 +178,7 @@ public class StaffDAO {
      */
     public void createStaff(Staff staff) {
         String sql = "INSERT INTO Staff (FullName, Gender, PhoneNumber, Email, PasswordHash, Role_ID, IsActive, Deleted) VALUES (?, ?, ?, ?, ?, ?, ?, 0)";
-        try (Connection conn = DBUtils.getConnection();
+        try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, staff.getFullName());
             ps.setBoolean(2, staff.isGender());
@@ -191,7 +200,7 @@ public class StaffDAO {
      */
     public void updateStaff(Staff staff) {
         String sql = "UPDATE Staff SET FullName = ?, Gender = ?, PhoneNumber = ?, Email = ?, Role_ID = ?, IsActive = ? WHERE StaffID = ? AND Deleted = 0";
-        try (Connection conn = DBUtils.getConnection();
+        try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, staff.getFullName());
             ps.setBoolean(2, staff.isGender());
@@ -212,7 +221,7 @@ public class StaffDAO {
      */
     public void deleteStaff(int staffId) {
         String sql = "DELETE FROM Staff WHERE StaffID = ?";
-        try (Connection conn = DBUtils.getConnection();
+        try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, staffId);
             ps.executeUpdate();

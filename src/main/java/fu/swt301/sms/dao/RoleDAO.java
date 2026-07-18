@@ -11,10 +11,20 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class RoleDAO {
+    private final ConnectionProvider connectionProvider;
+
+    public RoleDAO() {
+        this(DBUtils::getConnection);
+    }
+
+    public RoleDAO(ConnectionProvider connectionProvider) {
+        this.connectionProvider = connectionProvider;
+    }
+
     public List<Role> getAllRoles() {
         List<Role> roleList = new ArrayList<>();
         String sql = "SELECT * FROM Role";
-        try (Connection conn = DBUtils.getConnection();
+        try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
 

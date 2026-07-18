@@ -13,11 +13,21 @@ import java.util.List;
 
 @WebServlet("/staff-list")
 public class StaffListServlet extends HttpServlet {
+    private final StaffDAO staffDAO;
+
+    public StaffListServlet() {
+        this(new StaffDAO());
+    }
+
+    StaffListServlet(StaffDAO staffDAO) {
+        this.staffDAO = staffDAO;
+    }
+
+    @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         String searchName = request.getParameter("searchName");
         String searchStatus = request.getParameter("searchStatus");
 
-        StaffDAO staffDAO = new StaffDAO();
         List<Staff> staffList = staffDAO.getStaffByFilter(searchName, searchStatus);
 
         request.setAttribute("staffList", staffList);
