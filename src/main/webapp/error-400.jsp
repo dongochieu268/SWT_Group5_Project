@@ -1,0 +1,16 @@
+<%@ page contentType="text/html;charset=UTF-8" language="java" %>
+<html>
+<head>
+    <title>400 - Bad Request</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+<body>
+<div class="container">
+    <h2 class="text-center mt-5">400 - Bad Request</h2>
+    <p class="text-center">Invalid staff ID.</p>
+    <div class="text-center">
+        <a href="staff-list" class="btn btn-secondary">Back to List</a>
+    </div>
+</div>
+</body>
+</html>
