@@ -19,4 +19,8 @@ public class StaffService {
         staff.setPassword(PasswordUtils.hashPassword(staff.getPassword()));
         staffDAO.createStaff(staff);
     }
+
+    public Staff getStaffById(int staffId) {
+        return staffDAO.getStaffById(staffId);
+    }
 }
