@@ -39,4 +39,17 @@ public class RoleDAO {
         }
         return roleList;
     }
+
+    public boolean existsById(int roleId) {
+        String sql = "SELECT COUNT(*) FROM Role WHERE Role_ID = ?";
+        try (Connection conn = connectionProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, roleId);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() && rs.getInt(1) > 0;
+            }
+        } catch (ClassNotFoundException | SQLException e) {
+            throw new IllegalStateException("Unable to validate role", e);
+        }
+    }
 }

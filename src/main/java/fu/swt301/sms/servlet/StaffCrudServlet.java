@@ -5,6 +5,7 @@ import fu.swt301.sms.dao.StaffDAO;
 import fu.swt301.sms.entity.Role;
 import fu.swt301.sms.entity.Staff;
 import fu.swt301.sms.service.StaffService;
+import fu.swt301.sms.service.StaffValidationException;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -12,8 +13,12 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.sql.SQLException;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.List;
+import java.util.Locale;
+import java.util.logging.Logger;
 
 /**
  * This servlet acts as a controller for all CRUD (Create, Read, Update, Delete) operations related to Staff.
@@ -21,6 +26,8 @@ import java.util.List;
  */
 @WebServlet("/staff-crud")
 public class StaffCrudServlet extends HttpServlet {
+    private static final Logger LOGGER = Logger.getLogger(StaffCrudServlet.class.getName());
+
     private final StaffDAO staffDAO;
     private final StaffService staffService;
     private final RoleDAO roleDAO;
@@ -30,7 +37,7 @@ public class StaffCrudServlet extends HttpServlet {
     }
 
     StaffCrudServlet(StaffDAO staffDAO, RoleDAO roleDAO) {
-        this(staffDAO, new StaffService(staffDAO), roleDAO);
+        this(staffDAO, new StaffService(staffDAO, roleDAO), roleDAO);
     }
 
     StaffCrudServlet(StaffDAO staffDAO, StaffService staffService, RoleDAO roleDAO) {
@@ -50,69 +57,104 @@ public class StaffCrudServlet extends HttpServlet {
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         String action = request.getParameter("action");
-        // --- Step 1: Populate a Staff object from the request parameters ---
-        // Input strings are trimmed to remove leading/trailing whitespace for data consistency.
+        boolean creating = "create".equals(action);
+        if (!creating && !"update".equals(action)) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return;
+        }
+
         Staff staff = new Staff();
-        String staffIdParam = request.getParameter("staffID");
-        int staffId = (staffIdParam != null && !staffIdParam.isEmpty()) ? Integer.parseInt(staffIdParam) : 0;
-        staff.setStaffID(staffId);
-        staff.setFullName(request.getParameter("fullName").trim());
-        staff.setGender(Boolean.parseBoolean(request.getParameter("gender")));
-        staff.setPhoneNumber(request.getParameter("phoneNumber").trim());
-        staff.setEmail(request.getParameter("email").trim());
-        staff.setIsActive(Boolean.parseBoolean(request.getParameter("isActive")));
-        if ("create".equals(action)) {
-            // Password is only captured during creation and is not trimmed.
+        try {
+            populateStaff(request, creating, staff);
+            if (creating) {
+                staffService.createStaff(staff);
+            } else {
+                staffService.updateStaff(staff);
+            }
+            response.sendRedirect("staff-list");
+        } catch (StaffValidationException e) {
+            forwardToForm(request, response, staff, e.getMessage());
+        } catch (RuntimeException e) {
+            LOGGER.severe("Unable to save staff because of an internal error: "
+                    + e.getClass().getName());
+            forwardToForm(request, response, staff, "Unable to save staff. Please try again.");
+        }
+    }
+
+    private void populateStaff(HttpServletRequest request, boolean creating, Staff staff) {
+        if (!creating) {
+            staff.setStaffID(parsePositiveInt(request.getParameter("staffID"), "Staff ID is invalid."));
+        }
+        staff.setEmployeeCode(trim(request.getParameter("employeeCode")).toUpperCase(Locale.ROOT));
+        staff.setFullName(trim(request.getParameter("fullName")));
+
+        String gender = request.getParameter("gender");
+        if (!"true".equals(gender) && !"false".equals(gender)) {
+            throw new StaffValidationException("Gender is required.");
+        }
+        staff.setGender(Boolean.parseBoolean(gender));
+
+        staff.setDateOfBirth(parseDate(request.getParameter("dateOfBirth"), "Date of birth is invalid."));
+        staff.setPhoneNumber(trim(request.getParameter("phoneNumber")));
+        staff.setEmail(trim(request.getParameter("email")).toLowerCase(Locale.ROOT));
+        if (creating) {
             staff.setPassword(request.getParameter("password"));
         }
+        staff.setDepartment(trim(request.getParameter("department")));
+        staff.setPosition(trim(request.getParameter("position")));
+        staff.setSalary(parseSalary(request.getParameter("salary")));
+        staff.setHireDate(parseDate(request.getParameter("hireDate"), "Hire date is invalid."));
 
         Role role = new Role();
-        role.setRoleID(Integer.parseInt(request.getParameter("roleID")));
+        role.setRoleID(parsePositiveInt(request.getParameter("roleID"), "Role is required."));
         staff.setRole(role);
 
-        // --- Step 2: Perform server-side validation for uniqueness ---
-        String errorMessage = null;
+        String isActive = request.getParameter("isActive");
+        if (!"true".equals(isActive) && !"false".equals(isActive)) {
+            throw new StaffValidationException("Status is required.");
+        }
+        staff.setIsActive(Boolean.parseBoolean(isActive));
+    }
+
+    private LocalDate parseDate(String value, String message) {
         try {
-            if (staffDAO.isEmailExists(staff.getEmail(), staff.getStaffID())) {
-                errorMessage = "Email already exists. Please choose another one.";
-            } else if (staffDAO.isFullNameExists(staff.getFullName(), staff.getStaffID())) {
-                errorMessage = "Full name already exists. Please choose another one.";
-            } else if (staffDAO.isPhoneNumberExists(staff.getPhoneNumber(), staff.getStaffID())) {
-                errorMessage = "Phone number already exists. Please choose another one.";
+            return LocalDate.parse(trim(value));
+        } catch (DateTimeParseException e) {
+            throw new StaffValidationException(message);
+        }
+    }
+
+    private BigDecimal parseSalary(String value) {
+        try {
+            return new BigDecimal(trim(value));
+        } catch (NumberFormatException e) {
+            throw new StaffValidationException("Salary is invalid.");
+        }
+    }
+
+    private int parsePositiveInt(String value, String message) {
+        try {
+            int parsed = Integer.parseInt(trim(value));
+            if (parsed <= 0) {
+                throw new NumberFormatException();
             }
-        } catch (SQLException | ClassNotFoundException e) {
-            e.printStackTrace();
-            errorMessage = "Database error during validation.";
+            return parsed;
+        } catch (NumberFormatException e) {
+            throw new StaffValidationException(message);
         }
+    }
 
-        // --- Step 3: Handle validation failure ---
-        // If an error message was set, it means validation failed.
-        if (errorMessage != null) {
-            // Add the error message and the user-submitted data back into the request.
-            request.setAttribute("errorMessage", errorMessage);
-            request.setAttribute("staff", staff); // This preserves the user's input in the form fields.
+    private String trim(String value) {
+        return value == null ? "" : value.trim();
+    }
 
-            // Also, reload the list of roles for the dropdown.
-            List<Role> roleList = roleDAO.getAllRoles();
-            request.setAttribute("roleList", roleList);
-
-            // Forward the request back to the form page to display the error and the preserved data.
-            // Using forward is crucial here instead of redirect to maintain the request attributes.
-            request.getRequestDispatcher("staff-form.jsp").forward(request, response);
-            return; // Stop further processing to prevent the invalid data from being saved.
-        }
-
-        // --- Step 4: Handle validation success ---
-        // If there were no errors, proceed with the database operation.
-        if ("create".equals(action)) {
-            staffService.createStaff(staff);
-        } else if ("update".equals(action)) {
-            staffDAO.updateStaff(staff);
-        }
-
-        // After a successful operation, redirect the user to the staff list page.
-        // A redirect is used to prevent form resubmission issues if the user refreshes the page.
-        response.sendRedirect("staff-list");
+    private void forwardToForm(HttpServletRequest request, HttpServletResponse response,
+            Staff staff, String errorMessage) throws ServletException, IOException {
+        request.setAttribute("errorMessage", errorMessage);
+        request.setAttribute("staff", staff);
+        request.setAttribute("roleList", roleDAO.getAllRoles());
+        request.setAttribute("today", LocalDate.now());
+        request.getRequestDispatcher("staff-form.jsp").forward(request, response);
     }
 
     /**
@@ -135,6 +177,7 @@ public class StaffCrudServlet extends HttpServlet {
             // First, always fetch the list of roles for the dropdown.
             List<Role> roleList = roleDAO.getAllRoles();
             request.setAttribute("roleList", roleList);
+            request.setAttribute("today", LocalDate.now());
 
             if ("edit".equals(action)) {
                 // If editing, fetch the existing staff member's data to pre-populate the form.
