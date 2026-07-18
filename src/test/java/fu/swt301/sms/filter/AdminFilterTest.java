@@ -61,6 +61,7 @@ public class AdminFilterTest {
         new AdminFilter().doFilter(request, response, chain);
 
         verify(response).sendError(HttpServletResponse.SC_FORBIDDEN);
+        verify(chain, never()).doFilter(request, response);
     }
 
     @Test
