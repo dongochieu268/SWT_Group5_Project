@@ -2,7 +2,9 @@ package fu.swt301.sms.entity;
 
 public class Staff {
     private int staffID;
+    private String employeeCode;
     private String fullName;
+    private String department;
     private boolean gender;
     private String phoneNumber;
     private String email;
@@ -18,12 +20,28 @@ public class Staff {
         this.staffID = staffID;
     }
 
+    public String getEmployeeCode() {
+        return employeeCode;
+    }
+
+    public void setEmployeeCode(String employeeCode) {
+        this.employeeCode = employeeCode;
+    }
+
     public String getFullName() {
         return fullName;
     }
 
     public void setFullName(String fullName) {
         this.fullName = fullName;
+    }
+
+    public String getDepartment() {
+        return department;
+    }
+
+    public void setDepartment(String department) {
+        this.department = department;
     }
 
     public boolean isGender() {

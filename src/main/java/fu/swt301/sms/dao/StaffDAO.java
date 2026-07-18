@@ -29,7 +29,9 @@ public class StaffDAO {
     private Staff extractStaffFromResultSet(ResultSet rs) throws SQLException {
         Staff staff = new Staff();
         staff.setStaffID(rs.getInt("StaffID"));
+        staff.setEmployeeCode(rs.getString("EmployeeCode"));
         staff.setFullName(rs.getString("FullName"));
+        staff.setDepartment(rs.getString("Department"));
         staff.setGender(rs.getBoolean("Gender"));
         staff.setPhoneNumber(rs.getString("PhoneNumber"));
         staff.setEmail(rs.getString("Email"));
@@ -135,23 +137,38 @@ public class StaffDAO {
      * @return A list of Staff objects matching the criteria.
      */
     public List<Staff> getStaffByFilter(String name, String status) {
-        List<Staff> staffList = new ArrayList<>();
-        StringBuilder sql = new StringBuilder("SELECT s.*, r.Role_Name FROM Staff s JOIN Role r ON s.Role_ID = r.Role_ID WHERE s.Deleted = 0");
-        if (name != null && !name.isEmpty()) {
-            sql.append(" AND s.FullName LIKE ?");
-        }
-        if (status != null && !status.isEmpty()) {
-            sql.append(" AND s.IsActive = ?");
-        }
+        return findStaffPage(name, null, status, 0, Integer.MAX_VALUE);
+    }
+
+    public int countStaffByFilter(String keyword, String department, String status) {
+        StringBuilder sql = new StringBuilder("SELECT COUNT(*) FROM Staff s WHERE s.Deleted = 0");
+        List<Object> parameters = new ArrayList<>();
+        appendStaffFilters(sql, parameters, keyword, department, status);
+
         try (Connection conn = DBUtils.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql.toString())) {
-            int paramIndex = 1;
-            if (name != null && !name.isEmpty()) {
-                ps.setString(paramIndex++, "%" + name + "%");
+            setParameters(ps, parameters);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getInt(1) : 0;
             }
-            if (status != null && !status.isEmpty()) {
-                ps.setBoolean(paramIndex, Boolean.parseBoolean(status));
-            }
+        } catch (ClassNotFoundException | SQLException e) {
+            e.printStackTrace();
+        }
+        return 0;
+    }
+
+    public List<Staff> findStaffPage(String keyword, String department, String status, int offset, int pageSize) {
+        List<Staff> staffList = new ArrayList<>();
+        StringBuilder sql = new StringBuilder("SELECT s.*, r.Role_Name FROM Staff s JOIN Role r ON s.Role_ID = r.Role_ID WHERE s.Deleted = 0");
+        List<Object> parameters = new ArrayList<>();
+        appendStaffFilters(sql, parameters, keyword, department, status);
+        sql.append(" ORDER BY s.StaffID OFFSET ? ROWS FETCH NEXT ? ROWS ONLY");
+        parameters.add(Math.max(0, offset));
+        parameters.add(Math.max(1, pageSize));
+
+        try (Connection conn = DBUtils.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+            setParameters(ps, parameters);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     staffList.add(extractStaffFromResultSet(rs));
@@ -161,6 +178,49 @@ public class StaffDAO {
             e.printStackTrace();
         }
         return staffList;
+    }
+
+    private void appendStaffFilters(StringBuilder sql, List<Object> parameters, String keyword, String department, String status) {
+        String normalizedKeyword = normalize(keyword);
+        if (normalizedKeyword != null) {
+            sql.append(" AND (s.FullName LIKE ? OR s.EmployeeCode LIKE ?)");
+            String likeKeyword = "%" + normalizedKeyword + "%";
+            parameters.add(likeKeyword);
+            parameters.add(likeKeyword);
+        }
+
+        String normalizedDepartment = normalize(department);
+        if (normalizedDepartment != null) {
+            sql.append(" AND s.Department LIKE ?");
+            parameters.add("%" + normalizedDepartment + "%");
+        }
+
+        if ("true".equalsIgnoreCase(status) || "false".equalsIgnoreCase(status)) {
+            sql.append(" AND s.IsActive = ?");
+            parameters.add(Boolean.parseBoolean(status));
+        }
+    }
+
+    private String normalize(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private void setParameters(PreparedStatement ps, List<Object> parameters) throws SQLException {
+        for (int i = 0; i < parameters.size(); i++) {
+            Object parameter = parameters.get(i);
+            int parameterIndex = i + 1;
+            if (parameter instanceof Boolean) {
+                ps.setBoolean(parameterIndex, (Boolean) parameter);
+            } else if (parameter instanceof Integer) {
+                ps.setInt(parameterIndex, (Integer) parameter);
+            } else {
+                ps.setString(parameterIndex, String.valueOf(parameter));
+            }
+        }
     }
 
     /**
