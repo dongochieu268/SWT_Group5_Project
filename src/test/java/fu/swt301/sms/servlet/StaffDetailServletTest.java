@@ -7,8 +7,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.junit.Test;
 
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -21,12 +19,14 @@ public class StaffDetailServletTest {
         HttpServletResponse response = mock(HttpServletResponse.class);
         StaffService staffService = mock(StaffService.class);
         StaffDetailServlet servlet = new StaffDetailServlet(staffService);
+        RequestDispatcher dispatcher = mock(RequestDispatcher.class);
         when(request.getParameter("id")).thenReturn(null);
+        when(request.getRequestDispatcher("error-400.jsp")).thenReturn(dispatcher);
 
         servlet.doGet(request, response);
 
-        verify(response).sendError(HttpServletResponse.SC_BAD_REQUEST);
-        verify(request, never()).getRequestDispatcher(anyString());
+        verify(response).setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        verify(dispatcher).forward(request, response);
     }
 
     @Test
@@ -35,12 +35,14 @@ public class StaffDetailServletTest {
         HttpServletResponse response = mock(HttpServletResponse.class);
         StaffService staffService = mock(StaffService.class);
         StaffDetailServlet servlet = new StaffDetailServlet(staffService);
+        RequestDispatcher dispatcher = mock(RequestDispatcher.class);
         when(request.getParameter("id")).thenReturn("abc");
+        when(request.getRequestDispatcher("error-400.jsp")).thenReturn(dispatcher);
 
         servlet.doGet(request, response);
 
-        verify(response).sendError(HttpServletResponse.SC_BAD_REQUEST);
-        verify(request, never()).getRequestDispatcher(anyString());
+        verify(response).setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        verify(dispatcher).forward(request, response);
     }
 
     @Test
@@ -49,12 +51,14 @@ public class StaffDetailServletTest {
         HttpServletResponse response = mock(HttpServletResponse.class);
         StaffService staffService = mock(StaffService.class);
         StaffDetailServlet servlet = new StaffDetailServlet(staffService);
+        RequestDispatcher dispatcher = mock(RequestDispatcher.class);
         when(request.getParameter("id")).thenReturn("0");
+        when(request.getRequestDispatcher("error-400.jsp")).thenReturn(dispatcher);
 
         servlet.doGet(request, response);
 
-        verify(response).sendError(HttpServletResponse.SC_BAD_REQUEST);
-        verify(request, never()).getRequestDispatcher(anyString());
+        verify(response).setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        verify(dispatcher).forward(request, response);
     }
 
     @Test
@@ -63,13 +67,15 @@ public class StaffDetailServletTest {
         HttpServletResponse response = mock(HttpServletResponse.class);
         StaffService staffService = mock(StaffService.class);
         StaffDetailServlet servlet = new StaffDetailServlet(staffService);
+        RequestDispatcher dispatcher = mock(RequestDispatcher.class);
         when(request.getParameter("id")).thenReturn("1");
         when(staffService.getStaffById(1)).thenReturn(null);
+        when(request.getRequestDispatcher("error-404.jsp")).thenReturn(dispatcher);
 
         servlet.doGet(request, response);
 
-        verify(response).sendError(HttpServletResponse.SC_NOT_FOUND);
-        verify(request, never()).getRequestDispatcher(anyString());
+        verify(response).setStatus(HttpServletResponse.SC_NOT_FOUND);
+        verify(dispatcher).forward(request, response);
     }
 
     @Test
@@ -89,6 +95,7 @@ public class StaffDetailServletTest {
 
         verify(request).setAttribute("staff", staff);
         verify(dispatcher).forward(request, response);
-        verify(response, never()).sendError(anyInt());
+        verify(response, never()).setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        verify(response, never()).setStatus(HttpServletResponse.SC_NOT_FOUND);
     }
 }

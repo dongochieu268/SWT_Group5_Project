@@ -30,18 +30,21 @@ public class StaffDetailServlet extends HttpServlet {
         try {
             id = Integer.parseInt(idParam);
         } catch (NumberFormatException e) {
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            request.getRequestDispatcher("error-400.jsp").forward(request, response);
             return;
         }
 
         if (id < 1) {
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            request.getRequestDispatcher("error-400.jsp").forward(request, response);
             return;
         }
 
         Staff staff = staffService.getStaffById(id);
         if (staff == null) {
-            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            request.getRequestDispatcher("error-404.jsp").forward(request, response);
             return;
         }
 
