@@ -10,6 +10,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Data Access Object (DAO) for the Staff entity.
@@ -17,6 +19,7 @@ import java.util.List;
  * It handles all CRUD (Create, Read, Update, Delete) operations as well as other specific queries.
  */
 public class StaffDAO {
+    private static final Logger LOGGER = Logger.getLogger(StaffDAO.class.getName());
 
     /**
      * A private helper method to map a row from the ResultSet to a Staff object.
@@ -125,7 +128,7 @@ public class StaffDAO {
                 }
             }
         } catch (ClassNotFoundException | SQLException e) {
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Unable to find active staff by email.", e);
         }
         return null;
     }
@@ -152,7 +155,7 @@ public class StaffDAO {
                 return rs.next() ? rs.getInt(1) : 0;
             }
         } catch (ClassNotFoundException | SQLException e) {
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Unable to count staff by filter.", e);
         }
         return 0;
     }
@@ -175,7 +178,7 @@ public class StaffDAO {
                 }
             }
         } catch (ClassNotFoundException | SQLException e) {
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Unable to find staff page.", e);
         }
         return staffList;
     }
@@ -240,7 +243,7 @@ public class StaffDAO {
             ps.setBoolean(7, staff.isIsActive());
             ps.executeUpdate();
         } catch (ClassNotFoundException | SQLException e) {
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Unable to create staff.", e);
         }
     }
 
@@ -262,7 +265,7 @@ public class StaffDAO {
             ps.setInt(7, staff.getStaffID());
             ps.executeUpdate();
         } catch (ClassNotFoundException | SQLException e) {
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Unable to update staff.", e);
         }
     }
 
@@ -277,7 +280,7 @@ public class StaffDAO {
             ps.setInt(1, staffId);
             ps.executeUpdate();
         } catch (ClassNotFoundException | SQLException e) {
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Unable to delete staff.", e);
         }
     }
 
@@ -297,7 +300,7 @@ public class StaffDAO {
                 }
             }
         } catch (ClassNotFoundException | SQLException e) {
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Unable to get staff by ID.", e);
         }
         return null;
     }

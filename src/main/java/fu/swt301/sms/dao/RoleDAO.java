@@ -9,8 +9,12 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class RoleDAO {
+    private static final Logger LOGGER = Logger.getLogger(RoleDAO.class.getName());
+
     public List<Role> getAllRoles() {
         List<Role> roleList = new ArrayList<>();
         String sql = "SELECT * FROM Role";
@@ -25,7 +29,7 @@ public class RoleDAO {
                 roleList.add(role);
             }
         } catch (ClassNotFoundException | SQLException e) {
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Unable to get all roles.", e);
         }
         return roleList;
     }

@@ -1,5 +1,6 @@
 package fu.swt301.sms.servlet;
 
+import fu.swt301.sms.utils.CsrfTokenManager;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
@@ -37,6 +38,7 @@ public class StaffListServlet extends HttpServlet {
         request.setAttribute("searchKeyword", searchKeyword);
         request.setAttribute("searchDepartment", searchDepartment);
         request.setAttribute("searchStatus", searchStatus);
+        CsrfTokenManager.ensureToken(request);
         request.getRequestDispatcher("staff-list.jsp").forward(request, response);
     }
 

@@ -2,12 +2,12 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <html>
 <head>
-    <title>${empty staff ? 'Add Staff' : 'Edit Staff'}</title>
+    <title>${empty staff || staff.staffID == 0 ? 'Add Staff' : 'Edit Staff'}</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
 </head>
 <body>
 <div class="container">
-    <h2 class="text-center mt-5">${empty staff ? 'Add New Staff' : 'Edit Staff'}</h2>
+    <h2 class="text-center mt-5">${empty staff || staff.staffID == 0 ? 'Add New Staff' : 'Edit Staff'}</h2>
 
     <!-- Error Message Display -->
     <c:if test="${not empty errorMessage}">
@@ -17,7 +17,8 @@
     </c:if>
 
     <form action="staff-crud" method="post">
-        <input type="hidden" name="action" value="${empty staff ? 'create' : 'update'}">
+        <input type="hidden" name="action" value="${empty staff || staff.staffID == 0 ? 'create' : 'update'}">
+        <input type="hidden" name="csrfToken" value="<c:out value='${csrfToken}'/>">
         <c:if test="${not empty staff}">
             <input type="hidden" name="staffID" value="${staff.staffID}">
         </c:if>
@@ -75,7 +76,7 @@
                 <label class="form-check-label" for="inactive">Inactive</label>
             </div>
         </div>
-        <button type="submit" class="btn btn-primary">${empty staff ? 'Create' : 'Update'}</button>
+        <button type="submit" class="btn btn-primary">${empty staff || staff.staffID == 0 ? 'Create' : 'Update'}</button>
         <a href="staff-list" class="btn btn-secondary">Cancel</a>
     </form>
 </div>
