@@ -100,18 +100,24 @@ public class StaffDetailDAOIT {
     }
 
     private int insertStaff(String email, boolean deleted) throws Exception {
-        String sql = "INSERT INTO Staff (FullName, Gender, PhoneNumber, Email, PasswordHash, Role_ID, IsActive, Deleted) "
-                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO Staff (EmployeeCode, FullName, Gender, DateOfBirth, PhoneNumber, "
+                + "Email, PasswordHash, Department, Position, Salary, HireDate, Role_ID, IsActive, Deleted) "
+                + "VALUES (?, ?, ?, CAST('1995-01-01' AS DATE), ?, ?, ?, ?, ?, ?, "
+                + "CAST('2026-07-18' AS DATE), ?, ?, ?)";
         try (Connection conn = DBUtils.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            ps.setString(1, "IT FR-10 Staff");
-            ps.setBoolean(2, true);
-            ps.setString(3, "0999999999");
-            ps.setString(4, email);
-            ps.setString(5, "unused-hash");
-            ps.setInt(6, testRoleId);
-            ps.setBoolean(7, true);
-            ps.setBoolean(8, deleted);
+            ps.setString(1, "IT" + System.nanoTime());
+            ps.setString(2, "IT FR-10 Staff");
+            ps.setBoolean(3, true);
+            ps.setString(4, "0999999999");
+            ps.setString(5, email);
+            ps.setString(6, "unused-hash");
+            ps.setString(7, "Quality");
+            ps.setString(8, "Tester");
+            ps.setString(9, "1000.00");
+            ps.setInt(10, testRoleId);
+            ps.setBoolean(11, true);
+            ps.setBoolean(12, deleted);
             ps.executeUpdate();
             try (ResultSet keys = ps.getGeneratedKeys()) {
                 assertTrue(keys.next());
