@@ -275,6 +275,26 @@ public class StaffServiceTest {
         assertSame(expectedStaff, result);
     }
 
+    @Test
+    public void deleteStaffDelegatesToDaoWhenNotDeletingSelf() {
+        FakeStaffDAO staffDAO = new FakeStaffDAO();
+        StaffService staffService = new StaffService(staffDAO);
+
+        staffService.deleteStaff(5, 1);
+
+        assertEquals(5, staffDAO.deletedStaffId);
+    }
+
+    @Test
+    public void deleteStaffRejectsDeletingOwnAccount() {
+        FakeStaffDAO staffDAO = new FakeStaffDAO();
+        StaffService staffService = new StaffService(staffDAO);
+
+        expectValidation("You cannot delete your own account while logged in.",
+                () -> staffService.deleteStaff(1, 1));
+        assertEquals(-1, staffDAO.deletedStaffId);
+    }
+
     private static class FakeStaffDAO extends StaffDAO {
         private Staff savedStaff;
         private boolean employeeCodeExists;
@@ -292,6 +312,7 @@ public class StaffServiceTest {
         private String pageStatus;
         private int receivedOffset;
         private int receivedPageSize;
+        private int deletedStaffId = -1;
 
         @Override
         public boolean isEmployeeCodeExists(String employeeCode, int currentStaffId) {
@@ -339,6 +360,11 @@ public class StaffServiceTest {
         @Override
         public Staff getStaffById(int staffId) {
             return staffToReturn;
+        }
+
+        @Override
+        public void deleteStaff(int staffId) {
+            deletedStaffId = staffId;
         }
     }
 
