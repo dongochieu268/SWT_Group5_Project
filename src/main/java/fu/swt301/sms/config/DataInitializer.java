@@ -13,6 +13,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * This listener class is automatically instantiated and invoked by the web container when the application starts up.
@@ -23,6 +25,7 @@ import java.util.List;
  */
 @WebListener
 public class DataInitializer implements ServletContextListener {
+    private static final Logger LOGGER = Logger.getLogger(DataInitializer.class.getName());
 
     /**
      * This method is called by the container when the web application is first started.
@@ -59,7 +62,7 @@ public class DataInitializer implements ServletContextListener {
         } catch (SQLException | ClassNotFoundException e) {
             // If any database error occurs during initialization, log it and throw a RuntimeException
             // to halt the application's startup, as it cannot function without a proper database setup.
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Failed to initialize database.", e);
             throw new RuntimeException("Failed to initialize database.", e);
         }
     }

@@ -41,6 +41,7 @@ public class LoginServlet extends HttpServlet {
 
         if (staff != null) {
             HttpSession session = request.getSession();
+            request.changeSessionId();
             session.setAttribute("user", staff);
             response.sendRedirect("staff-list");
         } else {

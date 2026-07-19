@@ -18,6 +18,7 @@ import org.mockito.ArgumentCaptor;
 import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -26,13 +27,48 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 public class StaffCrudServletTest {
+
+    @Test
+    public void postWithoutCsrfTokenIsForbidden() throws Exception {
+        HttpServletResponse response = mock(HttpServletResponse.class);
+
+        servletWithMocks().doPost(mock(HttpServletRequest.class), response);
+
+        verify(response).sendError(HttpServletResponse.SC_FORBIDDEN);
+        verify(response, never()).sendRedirect(anyString());
+    }
+
+    @Test
+    public void postWithMismatchedCsrfTokenIsForbidden() throws Exception {
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        HttpSession session = mock(HttpSession.class);
+        when(request.getParameter("csrfToken")).thenReturn("submitted-token");
+        when(request.getSession(false)).thenReturn(session);
+        when(session.getAttribute("csrfToken")).thenReturn("expected-token");
+
+        servletWithMocks().doPost(request, response);
+
+        verify(response).sendError(HttpServletResponse.SC_FORBIDDEN);
+    }
+
+    @Test
+    public void deleteCannotBePerformedWithGet() throws Exception {
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        when(request.getParameter("action")).thenReturn("delete");
+
+        servletWithMocks().doGet(request, response);
+
+        verify(response).sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+    }
+
     @Test
     public void createParsesAllRequiredFieldsAndDelegatesToService() throws Exception {
         HttpServletRequest request = validCreateRequest();
         HttpServletResponse response = mock(HttpServletResponse.class);
         StaffService staffService = mock(StaffService.class);
-        StaffCrudServlet servlet = new StaffCrudServlet(
-                mock(StaffDAO.class), staffService, mock(RoleDAO.class));
+        StaffCrudServlet servlet = new StaffCrudServlet(mock(StaffDAO.class), staffService, mock(RoleDAO.class));
 
         servlet.doPost(request, response);
 
@@ -49,54 +85,36 @@ public class StaffCrudServletTest {
     }
 
     @Test
-    public void createRejectsMissingGenderOnServerAndPreservesForm() throws Exception {
-        HttpServletRequest request = validCreateRequest();
-        HttpServletResponse response = mock(HttpServletResponse.class);
-        StaffService staffService = mock(StaffService.class);
-        RoleDAO roleDAO = mock(RoleDAO.class);
-        RequestDispatcher dispatcher = mock(RequestDispatcher.class);
-        when(request.getParameter("gender")).thenReturn(null);
-        when(roleDAO.getAllRoles()).thenReturn(Collections.emptyList());
-        when(request.getRequestDispatcher("staff-form.jsp")).thenReturn(dispatcher);
-        StaffCrudServlet servlet = new StaffCrudServlet(
-                mock(StaffDAO.class), staffService, roleDAO);
+    public void createRejectsMissingGenderAndPreservesForm() throws Exception {
+        FormRequest formRequest = invalidCreateRequest("gender", null);
 
-        servlet.doPost(request, response);
+        formRequest.servlet.doPost(formRequest.request, formRequest.response);
 
-        verify(staffService, never()).createStaff(any(Staff.class));
-        verify(request).setAttribute("errorMessage", "Gender is required.");
-        verify(request).setAttribute(org.mockito.ArgumentMatchers.eq("staff"), any(Staff.class));
-        verify(dispatcher).forward(request, response);
+        verify(formRequest.staffService, never()).createStaff(any(Staff.class));
+        verify(formRequest.request).setAttribute("errorMessage", "Gender is required.");
+        verify(formRequest.dispatcher).forward(formRequest.request, formRequest.response);
     }
 
     @Test
-    public void createRejectsMissingStatusOnServer() throws Exception {
-        HttpServletRequest request = validCreateRequest();
-        HttpServletResponse response = mock(HttpServletResponse.class);
-        StaffService staffService = mock(StaffService.class);
-        RoleDAO roleDAO = mock(RoleDAO.class);
-        RequestDispatcher dispatcher = mock(RequestDispatcher.class);
-        when(request.getParameter("isActive")).thenReturn(null);
-        when(roleDAO.getAllRoles()).thenReturn(Collections.emptyList());
-        when(request.getRequestDispatcher("staff-form.jsp")).thenReturn(dispatcher);
-        StaffCrudServlet servlet = new StaffCrudServlet(
-                mock(StaffDAO.class), staffService, roleDAO);
+    public void createRejectsMissingStatusAndPreservesForm() throws Exception {
+        FormRequest formRequest = invalidCreateRequest("isActive", null);
 
-        servlet.doPost(request, response);
+        formRequest.servlet.doPost(formRequest.request, formRequest.response);
 
-        verify(staffService, never()).createStaff(any(Staff.class));
-        verify(request).setAttribute("errorMessage", "Status is required.");
-        verify(dispatcher).forward(request, response);
+        verify(formRequest.staffService, never()).createStaff(any(Staff.class));
+        verify(formRequest.request).setAttribute("errorMessage", "Status is required.");
+        verify(formRequest.dispatcher).forward(formRequest.request, formRequest.response);
     }
 
     @Test
-    public void deleteDelegatesToServiceWithCurrentUserIdAndRedirects() throws Exception {
-        HttpServletRequest request = deleteRequest("42");
+    public void deleteDelegatesToServiceWithCurrentUserAndRedirects() throws Exception {
+        HttpServletRequest request = validRequest();
         HttpServletResponse response = mock(HttpServletResponse.class);
         StaffService staffService = mock(StaffService.class);
+        when(request.getParameter("action")).thenReturn("delete");
+        when(request.getParameter("id")).thenReturn("42");
         withCurrentUser(request, 1);
-        StaffCrudServlet servlet = new StaffCrudServlet(
-                mock(StaffDAO.class), staffService, mock(RoleDAO.class));
+        StaffCrudServlet servlet = new StaffCrudServlet(mock(StaffDAO.class), staffService, mock(RoleDAO.class));
 
         servlet.doPost(request, response);
 
@@ -106,53 +124,59 @@ public class StaffCrudServletTest {
 
     @Test
     public void deleteRejectsSelfDeleteWithBadRequest() throws Exception {
-        HttpServletRequest request = deleteRequest("1");
+        HttpServletRequest request = validRequest();
         HttpServletResponse response = mock(HttpServletResponse.class);
         StaffService staffService = mock(StaffService.class);
+        when(request.getParameter("action")).thenReturn("delete");
+        when(request.getParameter("id")).thenReturn("1");
         withCurrentUser(request, 1);
         doThrow(new StaffValidationException("You cannot delete your own account while logged in."))
                 .when(staffService).deleteStaff(1, 1);
-        StaffCrudServlet servlet = new StaffCrudServlet(
-                mock(StaffDAO.class), staffService, mock(RoleDAO.class));
+        StaffCrudServlet servlet = new StaffCrudServlet(mock(StaffDAO.class), staffService, mock(RoleDAO.class));
 
         servlet.doPost(request, response);
 
-        verify(response).sendError(eq(HttpServletResponse.SC_BAD_REQUEST),
-                eq("You cannot delete your own account while logged in."));
-        verify(response, never()).sendRedirect(any());
+        verify(response).sendError(HttpServletResponse.SC_BAD_REQUEST,
+                "You cannot delete your own account while logged in.");
+        verify(response, never()).sendRedirect(anyString());
     }
 
     @Test
     public void deleteRejectsInvalidIdWithoutCallingService() throws Exception {
-        HttpServletRequest request = deleteRequest("not-a-number");
+        HttpServletRequest request = validRequest();
         HttpServletResponse response = mock(HttpServletResponse.class);
         StaffService staffService = mock(StaffService.class);
-        StaffCrudServlet servlet = new StaffCrudServlet(
-                mock(StaffDAO.class), staffService, mock(RoleDAO.class));
+        when(request.getParameter("action")).thenReturn("delete");
+        when(request.getParameter("id")).thenReturn("not-a-number");
+        StaffCrudServlet servlet = new StaffCrudServlet(mock(StaffDAO.class), staffService, mock(RoleDAO.class));
 
         servlet.doPost(request, response);
 
         verify(staffService, never()).deleteStaff(anyInt(), anyInt());
-        verify(response).sendError(eq(HttpServletResponse.SC_BAD_REQUEST), any());
+        verify(response).sendError(eq(HttpServletResponse.SC_BAD_REQUEST), anyString());
     }
 
-    private HttpServletRequest deleteRequest(String id) {
-        HttpServletRequest request = mock(HttpServletRequest.class);
-        when(request.getParameter("action")).thenReturn("delete");
-        when(request.getParameter("id")).thenReturn(id);
-        return request;
+    private StaffCrudServlet servletWithMocks() {
+        RoleDAO roleDAO = mock(RoleDAO.class);
+        when(roleDAO.getAllRoles()).thenReturn(Collections.emptyList());
+        return new StaffCrudServlet(mock(StaffDAO.class), mock(StaffService.class), roleDAO);
     }
 
-    private void withCurrentUser(HttpServletRequest request, int staffId) {
-        Staff currentUser = new Staff();
-        currentUser.setStaffID(staffId);
-        HttpSession session = mock(HttpSession.class);
-        when(session.getAttribute("user")).thenReturn(currentUser);
-        when(request.getSession(false)).thenReturn(session);
+    private FormRequest invalidCreateRequest(String parameterName, String invalidValue) {
+        StaffService staffService = mock(StaffService.class);
+        RoleDAO roleDAO = mock(RoleDAO.class);
+        RequestDispatcher dispatcher = mock(RequestDispatcher.class);
+        HttpServletRequest request = validCreateRequest();
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        when(request.getParameter(parameterName)).thenReturn(invalidValue);
+        when(roleDAO.getAllRoles()).thenReturn(Collections.emptyList());
+        when(request.getRequestDispatcher("staff-form.jsp")).thenReturn(dispatcher);
+        return new FormRequest(new StaffCrudServlet(mock(StaffDAO.class), staffService, roleDAO),
+                staffService, request, response, dispatcher);
     }
 
     private HttpServletRequest validCreateRequest() {
-        HttpServletRequest request = mock(HttpServletRequest.class);
+        HttpServletRequest request = validRequest();
         when(request.getParameter("action")).thenReturn("create");
         when(request.getParameter("employeeCode")).thenReturn("emp001");
         when(request.getParameter("fullName")).thenReturn("New Staff");
@@ -168,5 +192,38 @@ public class StaffCrudServletTest {
         when(request.getParameter("roleID")).thenReturn("2");
         when(request.getParameter("isActive")).thenReturn("true");
         return request;
+    }
+
+    private HttpServletRequest validRequest() {
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        HttpSession session = mock(HttpSession.class);
+        when(request.getParameter("csrfToken")).thenReturn("valid-token");
+        when(request.getSession()).thenReturn(session);
+        when(request.getSession(false)).thenReturn(session);
+        when(session.getAttribute("csrfToken")).thenReturn("valid-token");
+        return request;
+    }
+
+    private void withCurrentUser(HttpServletRequest request, int staffId) {
+        Staff currentUser = new Staff();
+        currentUser.setStaffID(staffId);
+        when(request.getSession(false).getAttribute("user")).thenReturn(currentUser);
+    }
+
+    private static class FormRequest {
+        private final StaffCrudServlet servlet;
+        private final StaffService staffService;
+        private final HttpServletRequest request;
+        private final HttpServletResponse response;
+        private final RequestDispatcher dispatcher;
+
+        private FormRequest(StaffCrudServlet servlet, StaffService staffService,
+                HttpServletRequest request, HttpServletResponse response, RequestDispatcher dispatcher) {
+            this.servlet = servlet;
+            this.staffService = staffService;
+            this.request = request;
+            this.response = response;
+            this.dispatcher = dispatcher;
+        }
     }
 }

@@ -19,6 +19,7 @@
 
     <form action="staff-crud" method="post">
         <input type="hidden" name="action" value="${empty staff || staff.staffID == 0 ? 'create' : 'update'}">
+        <input type="hidden" name="csrfToken" value="<c:out value='${csrfToken}'/>">
         <c:if test="${not empty staff && staff.staffID != 0}">
             <input type="hidden" name="staffID" value="${staff.staffID}">
         </c:if>

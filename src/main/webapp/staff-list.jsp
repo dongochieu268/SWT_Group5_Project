@@ -78,6 +78,7 @@
                               onsubmit="return confirm('Are you sure you want to delete this staff member?')">
                             <input type="hidden" name="action" value="delete">
                             <input type="hidden" name="id" value="${staff.staffID}">
+                            <input type="hidden" name="csrfToken" value="<c:out value='${csrfToken}'/>">
                             <button type="submit" class="btn btn-sm btn-danger">Delete</button>
                         </form>
                     </c:if>
