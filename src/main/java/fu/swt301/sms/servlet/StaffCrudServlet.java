@@ -4,6 +4,7 @@ import fu.swt301.sms.dao.RoleDAO;
 import fu.swt301.sms.dao.StaffDAO;
 import fu.swt301.sms.entity.Role;
 import fu.swt301.sms.entity.Staff;
+import fu.swt301.sms.service.StaffNotFoundException;
 import fu.swt301.sms.service.StaffService;
 import fu.swt301.sms.service.StaffValidationException;
 
@@ -72,6 +73,8 @@ public class StaffCrudServlet extends HttpServlet {
                 staffService.updateStaff(staff);
             }
             response.sendRedirect("staff-list");
+        } catch (StaffNotFoundException e) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND, "Staff not found");
         } catch (StaffValidationException e) {
             forwardToForm(request, response, staff, e.getMessage());
         } catch (RuntimeException e) {
@@ -182,7 +185,12 @@ public class StaffCrudServlet extends HttpServlet {
             if ("edit".equals(action)) {
                 // If editing, fetch the existing staff member's data to pre-populate the form.
                 int staffId = Integer.parseInt(request.getParameter("id"));
-                Staff staff = staffDAO.getStaffById(staffId);
+                Staff staff = staffService.getStaffById(staffId);
+                if (staff == null) {
+                    // Non-existent or soft-deleted StaffID: don't silently fall back to the create form.
+                    response.sendError(HttpServletResponse.SC_NOT_FOUND, "Staff not found");
+                    return;
+                }
                 request.setAttribute("staff", staff);
             }
             // If creating, we just need the empty form with the role list.
