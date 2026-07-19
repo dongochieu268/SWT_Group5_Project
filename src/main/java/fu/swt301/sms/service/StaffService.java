@@ -41,7 +41,15 @@ public class StaffService {
         staffDAO.createStaff(staff);
     }
 
+    /**
+     * @throws StaffNotFoundException if staff.getStaffID() does not match an
+     * existing, non-deleted record. Checked first so a bad ID fails fast
+     * instead of running the duplicate-check queries for nothing.
+     */
     public void updateStaff(Staff staff) {
+        if (staffDAO.getStaffById(staff.getStaffID()) == null) {
+            throw new StaffNotFoundException(staff.getStaffID());
+        }
         validateStaff(staff, false);
         validateUniqueFields(staff);
         validateRole(staff);
