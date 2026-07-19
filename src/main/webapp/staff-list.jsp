@@ -7,7 +7,12 @@
 </head>
 <body>
 <div class="container">
-    <h2 class="text-center mt-5">Staff Management</h2>
+    <div class="text-right mt-3">
+        <form action="logout" method="post" class="d-inline">
+            <button type="submit" class="btn btn-outline-secondary btn-sm">Logout</button>
+        </form>
+    </div>
+    <h2 class="text-center mt-3">Staff Management</h2>
     <div class="row mb-3">
         <div class="col-md-9">
             <form class="form-inline" action="staff-list" method="get">
