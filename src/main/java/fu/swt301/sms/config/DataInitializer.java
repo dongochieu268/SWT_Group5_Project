@@ -7,6 +7,7 @@ import jakarta.servlet.ServletContextListener;
 import jakarta.servlet.annotation.WebListener;
 
 import java.sql.Connection;
+import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -39,7 +40,7 @@ public class DataInitializer implements ServletContextListener {
             createRoleTableIfNotExists(conn);
             createStaffTableIfNotExists(conn);
             ensureStaffAuthColumns(conn);
-            ensureStaffListColumns(conn);
+            ensureStaffProfileColumns(conn);
 
             // Step 2: Check if the 'Role' table is empty. If it is, we assume the database is new and needs seeding.
             boolean dataExists = false;
@@ -122,16 +123,21 @@ public class DataInitializer implements ServletContextListener {
             System.out.println("Table 'Staff' not found. Creating table...");
             String createSQL = "CREATE TABLE Staff (" +
                                "StaffID INT PRIMARY KEY IDENTITY(1,1), " +
-                               "EmployeeCode VARCHAR(50), " +
+                               "EmployeeCode VARCHAR(20) NOT NULL, " +
                                "FullName NVARCHAR(100) NOT NULL, " +
-                               "Department NVARCHAR(100), " +
                                "Gender BIT NOT NULL, " +
-                               "PhoneNumber VARCHAR(20), " +
-                               "Email VARCHAR(100) NOT NULL UNIQUE, " +
+                               "DateOfBirth DATE NOT NULL, " +
+                               "PhoneNumber VARCHAR(10) NOT NULL, " +
+                               "Email VARCHAR(100) NOT NULL, " +
                                "PasswordHash VARCHAR(255) NOT NULL, " +
+                               "Department NVARCHAR(100) NOT NULL, " +
+                               "Position NVARCHAR(100) NOT NULL, " +
+                               "Salary DECIMAL(18,2) NOT NULL, " +
+                               "HireDate DATE NOT NULL, " +
                                "Role_ID INT NOT NULL, " +
                                "IsActive BIT NOT NULL, " +
                                "Deleted BIT NOT NULL DEFAULT 0, " +
+                               "CONSTRAINT CK_Staff_Salary CHECK (Salary >= 0), " +
                                "CONSTRAINT FK_Staff_Role FOREIGN KEY (Role_ID) REFERENCES Role(Role_ID)" +
                                ")";
             try (PreparedStatement ps = conn.prepareStatement(createSQL)) {
@@ -163,14 +169,23 @@ public class DataInitializer implements ServletContextListener {
         }
 
         // Insert a default administrator user for initial login.
-        try (PreparedStatement ps = conn.prepareStatement("INSERT INTO Staff (FullName, Gender, PhoneNumber, Email, PasswordHash, Role_ID, IsActive, Deleted) VALUES (?, ?, ?, ?, ?, ?, ?, 0)")) {
-            ps.setString(1, "Admin User");
-            ps.setBoolean(2, true); // true for Male
-            ps.setString(3, "0123456789");
-            ps.setString(4, "admin@example.com");
-            ps.setString(5, PasswordUtils.hashPassword("admin123"));
-            ps.setInt(6, 1); // Role_ID for Admin
-            ps.setBoolean(7, true); // IsActive
+        String sql = "INSERT INTO Staff (EmployeeCode, FullName, Gender, DateOfBirth, PhoneNumber, "
+                + "Email, PasswordHash, Department, Position, Salary, HireDate, Role_ID, IsActive, Deleted) "
+                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, "ADM001");
+            ps.setString(2, "Admin User");
+            ps.setBoolean(3, true);
+            ps.setDate(4, Date.valueOf("1990-01-01"));
+            ps.setString(5, "0123456789");
+            ps.setString(6, "admin@example.com");
+            ps.setString(7, PasswordUtils.hashPassword("admin123"));
+            ps.setString(8, "Administration");
+            ps.setString(9, "Administrator");
+            ps.setBigDecimal(10, java.math.BigDecimal.ZERO);
+            ps.setDate(11, Date.valueOf("2020-01-01"));
+            ps.setInt(12, 1);
+            ps.setBoolean(13, true);
             ps.executeUpdate();
             System.out.println("Default admin user inserted.");
         }
@@ -232,19 +247,94 @@ public class DataInitializer implements ServletContextListener {
         }
     }
 
-    private void ensureStaffListColumns(Connection conn) throws SQLException {
-        if (!columnExists(conn, "Staff", "EmployeeCode")) {
-            try (PreparedStatement ps = conn.prepareStatement("ALTER TABLE Staff ADD EmployeeCode VARCHAR(50) NULL")) {
-                ps.execute();
-                System.out.println("Column 'EmployeeCode' added to Staff.");
+    private void ensureStaffProfileColumns(Connection conn) throws SQLException {
+        addColumnIfMissing(conn, "EmployeeCode", "VARCHAR(20) NULL");
+        addColumnIfMissing(conn, "DateOfBirth", "DATE NULL");
+        addColumnIfMissing(conn, "Department", "NVARCHAR(100) NULL");
+        addColumnIfMissing(conn, "Position", "NVARCHAR(100) NULL");
+        addColumnIfMissing(conn, "Salary", "DECIMAL(18,2) NULL");
+        addColumnIfMissing(conn, "HireDate", "DATE NULL");
+
+        executeSchemaUpdate(conn,
+                "UPDATE Staff SET EmployeeCode = CONCAT('LEGACY', StaffID) WHERE EmployeeCode IS NULL");
+        executeSchemaUpdate(conn,
+                "UPDATE Staff SET DateOfBirth = '1900-01-01' WHERE DateOfBirth IS NULL");
+        executeSchemaUpdate(conn,
+                "UPDATE Staff SET Department = 'Legacy' WHERE Department IS NULL");
+        executeSchemaUpdate(conn,
+                "UPDATE Staff SET Position = 'Legacy' WHERE Position IS NULL");
+        executeSchemaUpdate(conn,
+                "UPDATE Staff SET Salary = 0 WHERE Salary IS NULL");
+        executeSchemaUpdate(conn,
+                "UPDATE Staff SET HireDate = CAST(GETDATE() AS DATE) WHERE HireDate IS NULL");
+
+        alterColumnIfNullable(conn, "EmployeeCode", "VARCHAR(20) NOT NULL");
+        alterColumnIfNullable(conn, "DateOfBirth", "DATE NOT NULL");
+        alterColumnIfNullable(conn, "Department", "NVARCHAR(100) NOT NULL");
+        alterColumnIfNullable(conn, "Position", "NVARCHAR(100) NOT NULL");
+        alterColumnIfNullable(conn, "Salary", "DECIMAL(18,2) NOT NULL");
+        alterColumnIfNullable(conn, "HireDate", "DATE NOT NULL");
+
+        dropLegacyEmailUniqueConstraint(conn);
+        ensureFilteredUniqueIndex(conn, "UX_Staff_EmployeeCode", "EmployeeCode");
+        ensureFilteredUniqueIndex(conn, "UX_Staff_Email", "Email");
+    }
+
+    private void addColumnIfMissing(Connection conn, String columnName, String definition)
+            throws SQLException {
+        if (!columnExists(conn, "Staff", columnName)) {
+            executeSchemaUpdate(conn, "ALTER TABLE Staff ADD " + columnName + " " + definition);
+        }
+    }
+
+    private void alterColumnIfNullable(Connection conn, String columnName, String definition)
+            throws SQLException {
+        if (columnAllowsNull(conn, "Staff", columnName)) {
+            executeSchemaUpdate(conn, "ALTER TABLE Staff ALTER COLUMN "
+                    + columnName + " " + definition);
+        }
+    }
+
+    private boolean columnAllowsNull(Connection conn, String tableName, String columnName)
+            throws SQLException {
+        String sql = "SELECT IS_NULLABLE FROM INFORMATION_SCHEMA.COLUMNS "
+                + "WHERE TABLE_NAME = ? AND COLUMN_NAME = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, tableName);
+            ps.setString(2, columnName);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() && "YES".equalsIgnoreCase(rs.getString("IS_NULLABLE"));
             }
         }
+    }
 
-        if (!columnExists(conn, "Staff", "Department")) {
-            try (PreparedStatement ps = conn.prepareStatement("ALTER TABLE Staff ADD Department NVARCHAR(100) NULL")) {
-                ps.execute();
-                System.out.println("Column 'Department' added to Staff.");
-            }
+    private void dropLegacyEmailUniqueConstraint(Connection conn) throws SQLException {
+        String sql = "DECLARE @constraintName NVARCHAR(128); "
+                + "SELECT TOP 1 @constraintName = kc.name "
+                + "FROM sys.key_constraints kc "
+                + "JOIN sys.index_columns ic ON kc.parent_object_id = ic.object_id "
+                + "AND kc.unique_index_id = ic.index_id "
+                + "JOIN sys.columns c ON ic.object_id = c.object_id "
+                + "AND ic.column_id = c.column_id "
+                + "WHERE kc.parent_object_id = OBJECT_ID('Staff') "
+                + "AND kc.type = 'UQ' AND c.name = 'Email'; "
+                + "IF @constraintName IS NOT NULL "
+                + "EXEC('ALTER TABLE Staff DROP CONSTRAINT [' + @constraintName + ']');";
+        executeSchemaUpdate(conn, sql);
+    }
+
+    private void ensureFilteredUniqueIndex(Connection conn, String indexName, String columnName)
+            throws SQLException {
+        String sql = "IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = '" + indexName
+                + "' AND object_id = OBJECT_ID('Staff')) "
+                + "CREATE UNIQUE INDEX " + indexName + " ON Staff(" + columnName
+                + ") WHERE Deleted = 0";
+        executeSchemaUpdate(conn, sql);
+    }
+
+    private void executeSchemaUpdate(Connection conn, String sql) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.execute();
         }
     }
 

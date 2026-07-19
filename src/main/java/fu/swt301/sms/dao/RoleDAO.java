@@ -14,11 +14,20 @@ import java.util.logging.Logger;
 
 public class RoleDAO {
     private static final Logger LOGGER = Logger.getLogger(RoleDAO.class.getName());
+    private final ConnectionProvider connectionProvider;
+
+    public RoleDAO() {
+        this(DBUtils::getConnection);
+    }
+
+    public RoleDAO(ConnectionProvider connectionProvider) {
+        this.connectionProvider = connectionProvider;
+    }
 
     public List<Role> getAllRoles() {
         List<Role> roleList = new ArrayList<>();
         String sql = "SELECT * FROM Role";
-        try (Connection conn = DBUtils.getConnection();
+        try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
 
@@ -32,5 +41,18 @@ public class RoleDAO {
             LOGGER.log(Level.SEVERE, "Unable to get all roles.", e);
         }
         return roleList;
+    }
+
+    public boolean existsById(int roleId) {
+        String sql = "SELECT COUNT(*) FROM Role WHERE Role_ID = ?";
+        try (Connection conn = connectionProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, roleId);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() && rs.getInt(1) > 0;
+            }
+        } catch (ClassNotFoundException | SQLException e) {
+            throw new IllegalStateException("Unable to validate role", e);
+        }
     }
 }
