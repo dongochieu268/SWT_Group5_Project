@@ -86,8 +86,8 @@ public class DataInitializer implements ServletContextListener {
         if (!tableExists) {
             System.out.println("Table 'Role' not found. Creating table...");
             String createSQL = "CREATE TABLE Role (" +
-                               "Role_ID INT PRIMARY KEY, " +
-                               "Role_Name NVARCHAR(50) NOT NULL UNIQUE" +
+                               "RoleID INT PRIMARY KEY, " +
+                               "RoleName NVARCHAR(50) NOT NULL UNIQUE" +
                                ")";
             try (PreparedStatement ps = conn.prepareStatement(createSQL)) {
                 ps.execute();
@@ -131,11 +131,11 @@ public class DataInitializer implements ServletContextListener {
                                "Position NVARCHAR(100) NOT NULL, " +
                                "Salary DECIMAL(18,2) NOT NULL, " +
                                "HireDate DATE NOT NULL, " +
-                               "Role_ID INT NOT NULL, " +
+                               "RoleID INT NOT NULL, " +
                                "IsActive BIT NOT NULL, " +
                                "Deleted BIT NOT NULL DEFAULT 0, " +
                                "CONSTRAINT CK_Staff_Salary CHECK (Salary >= 0), " +
-                               "CONSTRAINT FK_Staff_Role FOREIGN KEY (Role_ID) REFERENCES Role(Role_ID)" +
+                               "CONSTRAINT FK_Staff_Role FOREIGN KEY (RoleID) REFERENCES Role(RoleID)" +
                                ")";
             try (PreparedStatement ps = conn.prepareStatement(createSQL)) {
                 ps.execute();
@@ -152,7 +152,7 @@ public class DataInitializer implements ServletContextListener {
      */
     private void insertDefaultData(Connection conn) throws SQLException {
         // Insert default roles using a batch operation for efficiency.
-        try (PreparedStatement ps = conn.prepareStatement("INSERT INTO Role (Role_ID, Role_Name) VALUES (?, ?)")) {
+        try (PreparedStatement ps = conn.prepareStatement("INSERT INTO Role (RoleID, RoleName) VALUES (?, ?)")) {
             ps.setInt(1, 1);
             ps.setString(2, "Admin");
             ps.addBatch();
@@ -167,7 +167,7 @@ public class DataInitializer implements ServletContextListener {
 
         // Insert a default administrator user for initial login.
         String sql = "INSERT INTO Staff (EmployeeCode, FullName, Gender, DateOfBirth, PhoneNumber, "
-                + "Email, PasswordHash, Department, Position, Salary, HireDate, Role_ID, IsActive, Deleted) "
+                + "Email, PasswordHash, Department, Position, Salary, HireDate, RoleID, IsActive, Deleted) "
                 + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, "ADM001");

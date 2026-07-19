@@ -3,6 +3,7 @@ package fu.swt301.sms.servlet;
 import fu.swt301.sms.dao.RoleDAO;
 import fu.swt301.sms.dao.StaffDAO;
 import fu.swt301.sms.entity.Staff;
+import fu.swt301.sms.service.StaffNotFoundException;
 import fu.swt301.sms.service.StaffService;
 import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.http.HttpServletRequest;
@@ -82,6 +83,59 @@ public class StaffCrudServletTest {
         verify(staffService, never()).createStaff(any(Staff.class));
         verify(request).setAttribute("errorMessage", "Status is required.");
         verify(dispatcher).forward(request, response);
+    }
+
+    @Test
+    public void updateWithNonExistentStaffIdReturns404() throws Exception {
+        HttpServletRequest request = validUpdateRequest();
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        StaffService staffService = mock(StaffService.class);
+        org.mockito.Mockito.doThrow(new StaffNotFoundException(42))
+                .when(staffService).updateStaff(any(Staff.class));
+        StaffCrudServlet servlet = new StaffCrudServlet(
+                mock(StaffDAO.class), staffService, mock(RoleDAO.class));
+
+        servlet.doPost(request, response);
+
+        verify(response).sendError(HttpServletResponse.SC_NOT_FOUND, "Staff not found");
+        verify(response, never()).sendRedirect(org.mockito.ArgumentMatchers.anyString());
+    }
+
+    @Test
+    public void editWithNonExistentStaffIdReturns404() throws Exception {
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        StaffService staffService = mock(StaffService.class);
+        RoleDAO roleDAO = mock(RoleDAO.class);
+        when(request.getParameter("action")).thenReturn("edit");
+        when(request.getParameter("id")).thenReturn("999");
+        when(staffService.getStaffById(999)).thenReturn(null);
+        StaffCrudServlet servlet = new StaffCrudServlet(
+                mock(StaffDAO.class), staffService, roleDAO);
+
+        servlet.doGet(request, response);
+
+        verify(response).sendError(HttpServletResponse.SC_NOT_FOUND, "Staff not found");
+        verify(request, never()).getRequestDispatcher(org.mockito.ArgumentMatchers.anyString());
+    }
+
+    private HttpServletRequest validUpdateRequest() {
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        when(request.getParameter("action")).thenReturn("update");
+        when(request.getParameter("staffID")).thenReturn("42");
+        when(request.getParameter("employeeCode")).thenReturn("emp001");
+        when(request.getParameter("fullName")).thenReturn("New Staff");
+        when(request.getParameter("gender")).thenReturn("true");
+        when(request.getParameter("dateOfBirth")).thenReturn("1995-01-01");
+        when(request.getParameter("phoneNumber")).thenReturn("0987654321");
+        when(request.getParameter("email")).thenReturn("NEW.STAFF@example.com");
+        when(request.getParameter("department")).thenReturn("Engineering");
+        when(request.getParameter("position")).thenReturn("Developer");
+        when(request.getParameter("salary")).thenReturn("1000.00");
+        when(request.getParameter("hireDate")).thenReturn("2026-07-18");
+        when(request.getParameter("roleID")).thenReturn("2");
+        when(request.getParameter("isActive")).thenReturn("true");
+        return request;
     }
 
     private HttpServletRequest validCreateRequest() {

@@ -13,6 +13,7 @@ import java.util.List;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
@@ -158,6 +159,39 @@ public class StaffServiceTest {
                 () -> context.service.createStaff(validStaff()));
     }
 
+    @Test
+    public void updateStaffPersistsChangesWhenStaffExists() {
+        TestContext context = new TestContext();
+        Staff existing = new Staff();
+        existing.setStaffID(7);
+        context.staffDAO.staffToReturn = existing;
+        Staff updated = validStaff();
+        updated.setStaffID(7);
+
+        context.service.updateStaff(updated);
+
+        assertSame(updated, context.staffDAO.savedStaff);
+    }
+
+    @Test
+    public void updateStaffThrowsWhenStaffIdDoesNotExistOrIsDeleted() {
+        TestContext context = new TestContext();
+        Staff updated = validStaff();
+        updated.setStaffID(999);
+        // context.staffDAO.staffToReturn stays null, simulating a missing/soft-deleted StaffID.
+
+        try {
+            context.service.updateStaff(updated);
+            fail("Expected StaffNotFoundException");
+        } catch (StaffNotFoundException expected) {
+            assertEquals(999, expected.getStaffId());
+        }
+        assertFalse("existence must be checked before running duplicate-check queries",
+                context.staffDAO.duplicateCheckCalled);
+        assertFalse("update must not be attempted when the target does not exist",
+                context.staffDAO.updateCalled);
+    }
+
     private void expectValidation(String expectedMessage, Runnable action) {
         try {
             action.run();
@@ -292,9 +326,12 @@ public class StaffServiceTest {
         private String pageStatus;
         private int receivedOffset;
         private int receivedPageSize;
+        private boolean duplicateCheckCalled;
+        private boolean updateCalled;
 
         @Override
         public boolean isEmployeeCodeExists(String employeeCode, int currentStaffId) {
+            duplicateCheckCalled = true;
             return employeeCodeExists;
         }
 
@@ -339,6 +376,12 @@ public class StaffServiceTest {
         @Override
         public Staff getStaffById(int staffId) {
             return staffToReturn;
+        }
+
+        @Override
+        public void updateStaff(Staff staff) {
+            updateCalled = true;
+            savedStaff = staff;
         }
     }
 

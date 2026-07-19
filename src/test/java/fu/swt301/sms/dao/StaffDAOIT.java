@@ -31,7 +31,7 @@ public class StaffDAOIT {
         connectionProvider = () -> DriverManager.getConnection(URL, "sa", "");
         try (Connection conn = connectionProvider.getConnection()) {
             execute(conn,
-                    "CREATE TABLE Role (Role_ID INT PRIMARY KEY, Role_Name VARCHAR(50) NOT NULL)");
+                    "CREATE TABLE Role (RoleID INT PRIMARY KEY, RoleName VARCHAR(50) NOT NULL)");
             execute(conn,
                     "CREATE TABLE Staff ("
                             + "StaffID INT IDENTITY(1,1) PRIMARY KEY,"
@@ -46,11 +46,11 @@ public class StaffDAOIT {
                             + "Position VARCHAR(100) NOT NULL,"
                             + "Salary DECIMAL(18,2) NOT NULL,"
                             + "HireDate DATE NOT NULL,"
-                            + "Role_ID INT NOT NULL,"
+                            + "RoleID INT NOT NULL,"
                             + "IsActive BIT NOT NULL,"
                             + "Deleted BIT NOT NULL DEFAULT 0,"
-                            + "FOREIGN KEY (Role_ID) REFERENCES Role(Role_ID))");
-            execute(conn, "INSERT INTO Role (Role_ID, Role_Name) VALUES (2, 'Staff')");
+                            + "FOREIGN KEY (RoleID) REFERENCES Role(RoleID))");
+            execute(conn, "INSERT INTO Role (RoleID, RoleName) VALUES (2, 'Staff')");
         }
     }
 
