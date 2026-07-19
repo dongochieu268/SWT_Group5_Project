@@ -134,6 +134,63 @@ public class StaffDAOIT {
         }
     }
 
+    @Test
+    public void deleteStaffSoftDeletesAndExcludesFromActiveQueries() throws Exception {
+        StaffDAO staffDAO = new StaffDAO(connectionProvider);
+        StaffService staffService = new StaffService(
+                staffDAO, new RoleDAO(connectionProvider));
+        staffService.createStaff(validStaff());
+        int staffId = findStaffIdByEmployeeCode("EMP900");
+
+        staffDAO.deleteStaff(staffId);
+
+        assertEquals(1, countStaff());
+        assertEquals(true, isDeletedFlagSet(staffId));
+        assertEquals(null, staffDAO.getStaffById(staffId));
+        assertEquals(null, staffDAO.findActiveStaffByEmail("integration@example.com"));
+        assertEquals(false, staffDAO.isEmailExists("integration@example.com", 0));
+    }
+
+    @Test
+    public void deleteStaffIsIdempotentForAlreadyDeletedOrMissingId() throws Exception {
+        StaffDAO staffDAO = new StaffDAO(connectionProvider);
+        StaffService staffService = new StaffService(
+                staffDAO, new RoleDAO(connectionProvider));
+        staffService.createStaff(validStaff());
+        int staffId = findStaffIdByEmployeeCode("EMP900");
+
+        staffDAO.deleteStaff(staffId);
+        staffDAO.deleteStaff(staffId);
+        staffDAO.deleteStaff(staffId + 999);
+
+        assertEquals(1, countStaff());
+        assertEquals(true, isDeletedFlagSet(staffId));
+    }
+
+    private int findStaffIdByEmployeeCode(String employeeCode) throws Exception {
+        try (Connection conn = connectionProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                     "SELECT StaffID FROM Staff WHERE EmployeeCode = ?")) {
+            ps.setString(1, employeeCode);
+            try (ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                return rs.getInt(1);
+            }
+        }
+    }
+
+    private boolean isDeletedFlagSet(int staffId) throws Exception {
+        try (Connection conn = connectionProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                     "SELECT Deleted FROM Staff WHERE StaffID = ?")) {
+            ps.setInt(1, staffId);
+            try (ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                return rs.getBoolean(1);
+            }
+        }
+    }
+
     private int countStaff() throws Exception {
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement("SELECT COUNT(*) FROM Staff");
