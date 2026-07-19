@@ -294,17 +294,19 @@ public class StaffDAO {
     }
 
     /**
-     * Deletes a staff member from the database by their ID.
+     * Soft-deletes a staff member by marking Deleted = 1. The row is kept for
+     * audit purposes; already-deleted or non-existent IDs are a no-op so this
+     * method is idempotent.
      * @param staffId The ID of the staff member to delete.
      */
     public void deleteStaff(int staffId) {
-        String sql = "DELETE FROM Staff WHERE StaffID = ?";
+        String sql = "UPDATE Staff SET Deleted = 1 WHERE StaffID = ? AND Deleted = 0";
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, staffId);
             ps.executeUpdate();
         } catch (ClassNotFoundException | SQLException e) {
-            e.printStackTrace();
+            throw new IllegalStateException("Unable to delete staff", e);
         }
     }
 
