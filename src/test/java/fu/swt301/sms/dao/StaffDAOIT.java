@@ -121,6 +121,20 @@ public class StaffDAOIT {
     }
 
     @Test
+    public void failedInsertLeavesDatabaseUnchanged() throws Exception {
+        StaffDAO staffDAO = new StaffDAO(connectionProvider);
+        Staff staff = validStaff();
+        staff.getRole().setRoleID(999);
+
+        try {
+            staffDAO.createStaff(staff);
+            fail("Expected database insert to fail");
+        } catch (IllegalStateException expected) {
+            assertEquals(0, countStaff());
+        }
+    }
+
+    @Test
     public void deleteStaffSoftDeletesAndExcludesFromActiveQueries() throws Exception {
         StaffDAO staffDAO = new StaffDAO(connectionProvider);
         StaffService staffService = new StaffService(
