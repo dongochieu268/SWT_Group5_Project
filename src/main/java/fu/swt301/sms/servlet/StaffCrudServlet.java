@@ -12,6 +12,7 @@ import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -27,6 +28,7 @@ import java.util.logging.Logger;
 @WebServlet("/staff-crud")
 public class StaffCrudServlet extends HttpServlet {
     private static final Logger LOGGER = Logger.getLogger(StaffCrudServlet.class.getName());
+    private static final String STAFF_LIST_REDIRECT = "staff-list";
 
     private final StaffDAO staffDAO;
     private final StaffService staffService;
@@ -57,6 +59,11 @@ public class StaffCrudServlet extends HttpServlet {
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         String action = request.getParameter("action");
+        if ("delete".equals(action)) {
+            handleDelete(request, response);
+            return;
+        }
+
         boolean creating = "create".equals(action);
         if (!creating && !"update".equals(action)) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
@@ -71,13 +78,38 @@ public class StaffCrudServlet extends HttpServlet {
             } else {
                 staffService.updateStaff(staff);
             }
-            response.sendRedirect("staff-list");
+            response.sendRedirect(STAFF_LIST_REDIRECT);
         } catch (StaffValidationException e) {
             forwardToForm(request, response, staff, e.getMessage());
         } catch (RuntimeException e) {
             LOGGER.severe("Unable to save staff because of an internal error: "
                     + e.getClass().getName());
             forwardToForm(request, response, staff, "Unable to save staff. Please try again.");
+        }
+    }
+
+    /**
+     * Handles staff deletion. Only reachable via POST (enforced by callers -
+     * no GET route exists for this action) and only by an Admin (enforced by
+     * AdminFilter). Soft-deletes are idempotent and a self-delete is rejected
+     * with 400 rather than allowing an admin to lock themselves out.
+     */
+    private void handleDelete(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        int staffId;
+        try {
+            staffId = parsePositiveInt(request.getParameter("id"), "Staff ID is invalid.");
+        } catch (StaffValidationException e) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
+            return;
+        }
+
+        HttpSession session = request.getSession(false);
+        Staff currentUser = (Staff) session.getAttribute("user");
+        try {
+            staffService.deleteStaff(staffId, currentUser.getStaffID());
+            response.sendRedirect(STAFF_LIST_REDIRECT);
+        } catch (StaffValidationException e) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
         }
     }
 
@@ -158,7 +190,8 @@ public class StaffCrudServlet extends HttpServlet {
     }
 
     /**
-     * Handles GET requests, which are used to display pages or perform simple actions like deletion.
+     * Handles GET requests, which display the create/edit form. Deletion is
+     * POST-only (see {@link #handleDelete}) - there is no GET route for it.
      * @param request The HttpServletRequest object.
      * @param response The HttpServletResponse object.
      * @throws ServletException If a servlet-specific error occurs.
@@ -167,28 +200,21 @@ public class StaffCrudServlet extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         String action = request.getParameter("action");
-        if ("delete".equals(action)) {
-            // Handle deletion action.
+        // Handles both "create" and "edit" actions, as both need to display the form.
+        // First, always fetch the list of roles for the dropdown.
+        List<Role> roleList = roleDAO.getAllRoles();
+        request.setAttribute("roleList", roleList);
+        request.setAttribute("today", LocalDate.now());
+
+        if ("edit".equals(action)) {
+            // If editing, fetch the existing staff member's data to pre-populate the form.
             int staffId = Integer.parseInt(request.getParameter("id"));
-            staffDAO.deleteStaff(staffId);
-            response.sendRedirect("staff-list");
-        } else {
-            // Handles both "create" and "edit" actions, as both need to display the form.
-            // First, always fetch the list of roles for the dropdown.
-            List<Role> roleList = roleDAO.getAllRoles();
-            request.setAttribute("roleList", roleList);
-            request.setAttribute("today", LocalDate.now());
-
-            if ("edit".equals(action)) {
-                // If editing, fetch the existing staff member's data to pre-populate the form.
-                int staffId = Integer.parseInt(request.getParameter("id"));
-                Staff staff = staffDAO.getStaffById(staffId);
-                request.setAttribute("staff", staff);
-            }
-            // If creating, we just need the empty form with the role list.
-
-            // Forward to the JSP form for display.
-            request.getRequestDispatcher("staff-form.jsp").forward(request, response);
+            Staff staff = staffDAO.getStaffById(staffId);
+            request.setAttribute("staff", staff);
         }
+        // If creating, we just need the empty form with the role list.
+
+        // Forward to the JSP form for display.
+        request.getRequestDispatcher("staff-form.jsp").forward(request, response);
     }
 }

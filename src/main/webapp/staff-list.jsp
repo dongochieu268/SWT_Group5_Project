@@ -73,7 +73,14 @@
                 <td>
                     <a href="staff-detail?id=${staff.staffID}" class="btn btn-sm btn-info">View</a>
                     <a href="staff-crud?action=edit&id=${staff.staffID}" class="btn btn-sm btn-warning">Edit</a>
-                    <a href="staff-crud?action=delete&id=${staff.staffID}" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure?')">Delete</a>
+                    <c:if test="${staff.staffID != sessionScope.user.staffID}">
+                        <form action="staff-crud" method="post" class="d-inline"
+                              onsubmit="return confirm('Are you sure you want to delete this staff member?')">
+                            <input type="hidden" name="action" value="delete">
+                            <input type="hidden" name="id" value="${staff.staffID}">
+                            <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                        </form>
+                    </c:if>
                 </td>
             </tr>
         </c:forEach>

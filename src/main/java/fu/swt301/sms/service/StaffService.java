@@ -171,4 +171,18 @@ public class StaffService {
     public Staff getStaffById(int staffId) {
         return staffDAO.getStaffById(staffId);
     }
+
+    /**
+     * Soft-deletes the given staff member.
+     * @param staffId the staff to delete.
+     * @param currentStaffId the StaffID of the logged-in user performing the action.
+     * @throws StaffValidationException if staffId matches currentStaffId - a user
+     * cannot delete their own account while logged in.
+     */
+    public void deleteStaff(int staffId, int currentStaffId) {
+        if (staffId == currentStaffId) {
+            throw new StaffValidationException("You cannot delete your own account while logged in.");
+        }
+        staffDAO.deleteStaff(staffId);
+    }
 }

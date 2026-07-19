@@ -4,9 +4,11 @@ import fu.swt301.sms.dao.RoleDAO;
 import fu.swt301.sms.dao.StaffDAO;
 import fu.swt301.sms.entity.Staff;
 import fu.swt301.sms.service.StaffService;
+import fu.swt301.sms.service.StaffValidationException;
 import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Collections;
@@ -15,6 +17,9 @@ import org.mockito.ArgumentCaptor;
 
 import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -82,6 +87,68 @@ public class StaffCrudServletTest {
         verify(staffService, never()).createStaff(any(Staff.class));
         verify(request).setAttribute("errorMessage", "Status is required.");
         verify(dispatcher).forward(request, response);
+    }
+
+    @Test
+    public void deleteDelegatesToServiceWithCurrentUserIdAndRedirects() throws Exception {
+        HttpServletRequest request = deleteRequest("42");
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        StaffService staffService = mock(StaffService.class);
+        withCurrentUser(request, 1);
+        StaffCrudServlet servlet = new StaffCrudServlet(
+                mock(StaffDAO.class), staffService, mock(RoleDAO.class));
+
+        servlet.doPost(request, response);
+
+        verify(staffService).deleteStaff(42, 1);
+        verify(response).sendRedirect("staff-list");
+    }
+
+    @Test
+    public void deleteRejectsSelfDeleteWithBadRequest() throws Exception {
+        HttpServletRequest request = deleteRequest("1");
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        StaffService staffService = mock(StaffService.class);
+        withCurrentUser(request, 1);
+        doThrow(new StaffValidationException("You cannot delete your own account while logged in."))
+                .when(staffService).deleteStaff(1, 1);
+        StaffCrudServlet servlet = new StaffCrudServlet(
+                mock(StaffDAO.class), staffService, mock(RoleDAO.class));
+
+        servlet.doPost(request, response);
+
+        verify(response).sendError(eq(HttpServletResponse.SC_BAD_REQUEST),
+                eq("You cannot delete your own account while logged in."));
+        verify(response, never()).sendRedirect(any());
+    }
+
+    @Test
+    public void deleteRejectsInvalidIdWithoutCallingService() throws Exception {
+        HttpServletRequest request = deleteRequest("not-a-number");
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        StaffService staffService = mock(StaffService.class);
+        StaffCrudServlet servlet = new StaffCrudServlet(
+                mock(StaffDAO.class), staffService, mock(RoleDAO.class));
+
+        servlet.doPost(request, response);
+
+        verify(staffService, never()).deleteStaff(anyInt(), anyInt());
+        verify(response).sendError(eq(HttpServletResponse.SC_BAD_REQUEST), any());
+    }
+
+    private HttpServletRequest deleteRequest(String id) {
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        when(request.getParameter("action")).thenReturn("delete");
+        when(request.getParameter("id")).thenReturn(id);
+        return request;
+    }
+
+    private void withCurrentUser(HttpServletRequest request, int staffId) {
+        Staff currentUser = new Staff();
+        currentUser.setStaffID(staffId);
+        HttpSession session = mock(HttpSession.class);
+        when(session.getAttribute("user")).thenReturn(currentUser);
+        when(request.getSession(false)).thenReturn(session);
     }
 
     private HttpServletRequest validCreateRequest() {
